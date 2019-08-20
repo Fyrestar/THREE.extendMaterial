@@ -7,7 +7,7 @@ For patching in onBeforeCompile:
 `THREE.patchShader( object [, options])`
 
 
-`
+```
 const myMaterial = THREE.ShaderMaterial.extend(THREE.MeshPhongMaterial, {
 
     // Will be prepended to vertex and fragment code
@@ -44,4 +44,4 @@ const myMaterial = THREE.ShaderMaterial.extend(THREE.MeshPhongMaterial, {
     }
 
 });
-`
+```
