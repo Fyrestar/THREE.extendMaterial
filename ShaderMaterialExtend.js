@@ -1,3 +1,4 @@
+// Author: Fyrestar info@mevedia.com
 THREE.ShaderMaterial.extend = function () {
 
 	const mappings = {
