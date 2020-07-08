@@ -1,4 +1,4 @@
-// Author: Fyrestar info@mevedia.com
+// Author: Fyrestar https://mevedia.com (https://github.com/Fyrestar/ShaderMaterialExtend)
 THREE.ShaderMaterial.extend = function () {
 
 	const mappings = {
