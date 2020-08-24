@@ -1,5 +1,63 @@
 // Author: Fyrestar https://mevedia.com (https://github.com/Fyrestar/ShaderMaterialExtend)
-THREE.ShaderMaterial.extend = function () {
+THREE.extendMaterial = THREE.ShaderMaterial.extend = function () {
+
+
+	const Materials = [
+		THREE.ShadowMaterial,
+		THREE.SpriteMaterial,
+		THREE.RawShaderMaterial,
+		THREE.ShaderMaterial,
+		THREE.PointsMaterial,
+		THREE.MeshPhysicalMaterial,
+		THREE.MeshStandardMaterial,
+		THREE.MeshPhongMaterial,
+		THREE.MeshToonMaterial,
+		THREE.MeshNormalMaterial,
+		THREE.MeshLambertMaterial,
+		THREE.MeshDepthMaterial,
+		THREE.MeshDistanceMaterial,
+		THREE.MeshBasicMaterial,
+		THREE.MeshMatcapMaterial,
+		THREE.LineDashedMaterial,
+		THREE.LineBasicMaterial,
+		THREE.Material,
+		THREE.MeshFaceMaterial,
+		THREE.MultiMaterial,
+		THREE.PointCloudMaterial,
+		THREE.ParticleBasicMaterial,
+		THREE.ParticleSystemMaterial
+	];
+
+	// Type on prototype needed to identify when minified
+
+	THREE.ShadowMaterial.prototype.type = 'ShadowMaterial';
+	THREE.SpriteMaterial.prototype.type = 'SpriteMaterial';
+	THREE.RawShaderMaterial.prototype.type = 'RawShaderMaterial';
+	THREE.ShaderMaterial.prototype.type = 'ShaderMaterial';
+	THREE.PointsMaterial.prototype.type = 'PointsMaterial';
+	THREE.MeshPhysicalMaterial.prototype.type = 'MeshPhysicalMaterial';
+	THREE.MeshStandardMaterial.prototype.type = 'MeshStandardMaterial';
+	THREE.MeshPhongMaterial.prototype.type = 'MeshPhongMaterial';
+	THREE.MeshToonMaterial.prototype.type = 'MeshToonMaterial';
+	THREE.MeshNormalMaterial.prototype.type = 'MeshNormalMaterial';
+	THREE.MeshLambertMaterial.prototype.type = 'MeshLambertMaterial';
+	THREE.MeshDepthMaterial.prototype.type = 'MeshDepthMaterial';
+	THREE.MeshDistanceMaterial.prototype.type = 'MeshDistanceMaterial';
+	THREE.MeshBasicMaterial.prototype.type = 'MeshBasicMaterial';
+	THREE.MeshMatcapMaterial.prototype.type = 'MeshMatcapMaterial';
+	THREE.LineDashedMaterial.prototype.type = 'LineDashedMaterial';
+	THREE.LineBasicMaterial.prototype.type = 'LineBasicMaterial';
+	THREE.Material.prototype.type = 'Material';
+	THREE.MeshFaceMaterial.prototype.type = 'MeshFaceMaterial';
+	THREE.MultiMaterial.prototype.type = 'MultiMaterial';
+	THREE.PointCloudMaterial.prototype.type = 'PointCloudMaterial';
+	THREE.ParticleBasicMaterial.prototype.type = 'ParticleBasicMaterial';
+	THREE.ParticleSystemMaterial.prototype.type = 'ParticleSystemMaterial';
+
+
+	for ( let constructor of Materials )
+		constructor.prototype.templates = [];
+
 
 	const mappings = {
 		MeshLambertMaterial: {
@@ -49,10 +107,10 @@ THREE.ShaderMaterial.extend = function () {
 	};
 
 	const uniformFlags = {
-	  alphaTest: {
-		  as: 'ALPHATEST',
-		  not: 0
-	  }
+		alphaTest: {
+			as: 'ALPHATEST',
+			not: 0
+		}
 	};
 
 	const mapFlags = {
@@ -70,41 +128,108 @@ THREE.ShaderMaterial.extend = function () {
 		displacementMap: 'USE_DISPLACEMENTMAP'
 	};
 
-	function applyPatches(chunk, map) {
 
-		for ( let name in map ) {
+	function cloneUniforms( src ) {
 
-			const value = map[name];
+		const dst = {};
 
-			if ( value instanceof Object ) {
+		for ( let u in src ) {
 
-				if ( THREE.ShaderChunk[name] === undefined ) {
+			const uniform = src[ u ];
 
-					console.error('THREE.ShaderMaterial.extend: ShaderChunk "%s" not found', name);
+			if ( uniform.shared ) {
+
+				dst[ u ] = uniform;
+
+				continue;
+
+			} else {
+
+				dst[ u ] = {};
+
+			}
+
+
+			for ( let p in uniform ) {
+
+
+				const property = uniform[ p ];
+
+				if ( property && ( property.isColor ||
+					property.isMatrix3 || property.isMatrix4 ||
+					property.isVector2 || property.isVector3 || property.isVector4 ||
+					property.isTexture ) ) {
+
+					dst[ u ][ p ] = property.clone();
+
+				} else if ( Array.isArray( property ) ) {
+
+					dst[ u ][ p ] = property.slice();
 
 				} else {
 
-					chunk = chunk.replace('#include <' + name + '>', applyPatches(THREE.ShaderChunk[name], value) );
+					dst[ u ][ p ] = property;
+
+				}
+
+			}
+
+		}
+
+		return dst;
+
+	}
+
+	function applyPatches( chunk, map ) {
+
+		for ( let name in map ) {
+
+			const value = map[ name ];
+
+			if ( value instanceof Object ) {
+
+				if ( THREE.ShaderChunk[ name ] === undefined ) {
+
+					console.error( 'THREE.ShaderMaterial.extend: ShaderChunk "%s" not found', name );
+
+				} else {
+
+					chunk = chunk.replace( '#include <' + name + '>', applyPatches( THREE.ShaderChunk[ name ], value ) );
 
 				}
 
 			} else {
 
-				if ( name[0] === '@' ) {
 
-					const line = name.substr(1);
+				if ( name[ 0 ] === '@' ) {
 
-					chunk = chunk.replace(line, value);
+					// Replace
 
-				} else if ( name[0] === '?' ) {
+					const line = name.substr( 1 );
 
-					const line = name.substr(1);
+					chunk = chunk.replace( line, value );
 
-					chunk = chunk.replace(line, value + '\n' + line);
+				} else if ( name[ 0 ] === '?' ) {
+
+					// Insert before
+
+					const line = name.substr( 1 );
+
+					chunk = chunk.replace( line, value + '\n' + line );
 
 				} else {
 
-					chunk = chunk.replace(name, name + '\n' + value);
+					// Insert after
+
+					if ( !chunk ) {
+
+						console.error( "THREE.patchShader: chunk not found '%s'", name );
+
+					} else {
+
+						chunk = chunk.replace( name, name + '\n' + value );
+
+					}
 
 				}
 
@@ -116,141 +241,208 @@ THREE.ShaderMaterial.extend = function () {
 
 	}
 
-	function applyUniforms(src, dst, defines) {
+	function applyUniforms( src, dst, defines ) {
 
 		if ( src.uniforms !== undefined ) {
 
 			for ( let name in src.uniforms ) {
 
-				if ( !dst.uniforms[name] )
-					dst.uniforms[name] = {};
-
-				dst.uniforms[name].value = src.uniforms[name];
+				if ( !dst.uniforms[ name ] )
+					dst.uniforms[ name ] = {};
 
 
-				if ( defines && mapFlags[name] !== undefined )
-					defines[mapFlags[name]] = true;
+				const object = src.uniforms[ name ];
+
+				let value = object;
+
+				// Accepts uniform objects and plain values
+
+				if ( object && object.value !== undefined ) {
+
+					dst.uniforms[ name ] = object;
+					value = object.value;
+
+				} else {
+
+					dst.uniforms[ name ].value = object;
+
+				}
 
 
-				const flag = uniformFlags[name];
+				// Maps require USE_X constants
 
-				if ( defines && flag !== undefined && ( flag.not === undefined || flag.not !== src.uniforms[name] ) )
-					defines[flag.as] = src.uniforms[name];
+				if ( defines && mapFlags[ name ] !== undefined && object && object.value )
+					defines[ mapFlags[ name ] ] = true;
+
+
+				// Converts properties like alphaTest to their constant
+
+				const flag = uniformFlags[ name ];
+
+				if ( defines && flag !== undefined && ( flag.not === undefined || flag.not !== value ) )
+					defines[ flag.as ] = value;
+
 			}
 
 		}
 	}
 
-	THREE.mapShader = function(name, type) {
+	THREE.mapShader = function ( name, type ) {
 
 		const mapping = mappings[ name ];
 
-		return THREE.ShaderChunk[mapping.id + '_' + ( type === 'vertex' ? 'vert' : 'frag' )];
+		return THREE.ShaderChunk[ mapping.id + '_' + ( type === 'vertex' ? 'vert' : 'frag' ) ];
 
 	};
 
-	THREE.patchShader = function(shader, object) {
+	THREE.patchShader = function ( shader, object ) {
 
 		// A shared header ( varyings, uniforms, functions etc )
 
 		let header = ( object.header || '' ) + '\n';
-		let vertexShader = shader.vertexShader;
-		let fragmentShader = shader.fragmentShader;
+		let vertexShader = ( object.vertexHeader || '' ) + shader.vertexShader;
+		let fragmentShader = ( object.fragmentHeader || '' ) + shader.fragmentShader;
+
+		if ( object.fragmentEnd )
+			fragmentShader = fragmentShader.replace( /\}(?=[^.]*$)/g, object.fragmentEnd + '\n}' );
 
 		// Insert or replace lines (@ to replace)
 
 		if ( object.vertex !== undefined )
-			vertexShader = applyPatches(vertexShader, object.vertex);
+			vertexShader = applyPatches( vertexShader, object.vertex );
 
 
 		if ( object.fragment !== undefined )
-			fragmentShader = applyPatches(fragmentShader, object.fragment);
+			fragmentShader = applyPatches( fragmentShader, object.fragment );
 
 
 		shader.vertexShader = header + vertexShader;
 		shader.fragmentShader = header + fragmentShader;
 
-		applyUniforms(object, shader);
+		applyUniforms( object, shader );
 
 
 		return shader;
 
 	};
 
-	return function(source, object) {
+
+
+	const _clone = THREE.ShaderMaterial.prototype.clone;
+
+	THREE.ShaderMaterial.prototype.clone = function() {
+
+		const clone = _clone.call( this );
+
+		clone.templates = this.templates;
+
+		return clone;
+
+	};
+
+
+	return function ( source, object ) {
 
 		object = object || {};
-
 
 
 		// Extend from class or shader material
 
 		let uniforms, vertexShader = '', fragmentShader = '';
 
+
+		// Inherit from previous material templates chain
+
+		const inherit = object.inherit || object.extends;
+
+		// New shader material
+
 		const material = new THREE.ShaderMaterial;
 		const properties = object.material || {};
-		const defines = properties.defines || {};
+		const defines = Object.assign( {}, properties.defines );
+
+
+		// Inherit constants and uniforms
+
+		if ( inherit && inherit.defines )
+			Object.assign( defines, inherit.defines );
+
+		if ( inherit && inherit.uniforms )
+			uniforms = inherit.uniforms;
+
+
+		// Create new template chain
+
+		material.templates = [ object ];
+
 
 		if ( source instanceof Function ) {
 
-			const mapping = mappings[ source.name ];
+			// Source is a constructor
+
+			const name = source.prototype.type;
+			const mapping = mappings[ name ];
 
 			if ( mapping === undefined ) {
 
-				console.error('THREE.ShaderMaterial.extend: no mapping for material class "%s" found', source.name);
+				console.error( 'THREE.extendMaterial: no mapping for material class "%s" found', name );
 
 				return material;
 
 			}
 
-			uniforms = THREE.UniformsUtils.clone(THREE.ShaderLib[mapping.name].uniforms);
-			vertexShader = THREE.ShaderChunk[mapping.id + '_vert'];
-			fragmentShader = THREE.ShaderChunk[mapping.id + '_frag'];
+			uniforms = uniforms || cloneUniforms( THREE.ShaderLib[ mapping.name ].uniforms );
+			vertexShader = THREE.ShaderChunk[ mapping.id + '_vert' ];
+			fragmentShader = THREE.ShaderChunk[ mapping.id + '_frag' ];
 
 			properties.lights = properties.lights === undefined ? true : properties.lights;
 
 		} else if ( source.isShaderMaterial ) {
 
-			uniforms = THREE.UniformsUtils.clone(source.uniforms);
+			// Source is a ShaderMaterial
+
+			uniforms = uniforms || cloneUniforms( source.uniforms );
 			vertexShader = source.vertexShader;
 			fragmentShader = source.fragmentShader;
 
-			material.copy(source);
-
+			material.copy( source );
 
 			if ( source.defines )
-				Object.assign(defines, source.defines);
+				Object.assign( defines, source.defines );
 
 		} else {
 
-			const mapping = mappings[ source.constructor.name ];
+			// Source is a material instance
+
+			const name = source.type;
+			const mapping = mappings[ name ];
 
 			if ( mapping === undefined ) {
 
-				console.error('THREE.ShaderMaterial.extend: no mapping for material class "%s" found', source.constructor.name);
+				console.error( 'THREE.extendMaterial: no mapping for material class "%s" found', name );
 
 				return material;
 
 			}
 
-			uniforms = THREE.UniformsUtils.clone(THREE.ShaderLib[mapping.name].uniforms);
-			vertexShader = THREE.ShaderChunk[mapping.id + '_vert'];
-			fragmentShader = THREE.ShaderChunk[mapping.id + '_frag'];
+			uniforms = uniforms || cloneUniforms( THREE.ShaderLib[ mapping.name ].uniforms );
+			vertexShader = THREE.ShaderChunk[ mapping.id + '_vert' ];
+			fragmentShader = THREE.ShaderChunk[ mapping.id + '_frag' ];
 
 			properties.lights = properties.lights === undefined ? true : properties.lights;
 
 			// Apply properties to uniforms
 
 			for ( let name in uniforms )
-				if ( source[name] )
-					uniforms[name].value = source[name];
+				if ( source[ name ] )
+					uniforms[ name ].value = source[ name ];
 
 		}
 
 		// Override constants
 
 		if ( object.defines )
-			Object.assign(defines, object.defines);
+			Object.assign( defines, object.defines );
 
 
 		// A shared header ( varyings, uniforms, functions etc )
@@ -258,28 +450,51 @@ THREE.ShaderMaterial.extend = function () {
 		let header = ( object.header || '' ) + '\n';
 
 
-		// Append, prepend (? prefix) or replace (@ prefix)
+		// Insert or replace lines (@ to replace)
 
 		if ( object.vertex !== undefined )
-			vertexShader = applyPatches(vertexShader, object.vertex);
+			vertexShader = applyPatches( vertexShader, object.vertex );
 
 
 		if ( object.fragment !== undefined )
-			fragmentShader = applyPatches(fragmentShader, object.fragment);
+			fragmentShader = applyPatches( fragmentShader, object.fragment );
 
 
 		properties.defines = defines;
 		properties.uniforms = uniforms;
-		properties.vertexShader = header + vertexShader;
-		properties.fragmentShader = header + fragmentShader;
+		properties.vertexShader = header + ( object.vertexHeader || '' ) + vertexShader;
+		properties.fragmentShader = header + ( object.fragmentHeader || '' ) + fragmentShader;
+
+		if ( object.fragmentEnd )
+			properties.fragmentShader = properties.fragmentShader.replace( /\}(?=[^.]*$)/g, object.fragmentEnd + '\n}' );
 
 
 		// Assign uniforms
 
-		applyUniforms(object, properties, defines);
+		applyUniforms( object, properties, defines );
 
 
-		material.setValues(properties);
+		material.setValues( properties );
+
+
+		if ( inherit && inherit.templates && inherit.templates.length ) {
+
+			for ( let template of inherit.templates ) {
+
+				delete template.uniforms;
+
+				THREE.patchShader( material, template );
+			}
+
+		}
+
+
+		// Fix: since we use #ifdef false would be false positive
+
+		for ( let name in defines )
+			if ( defines[ name ] === false )
+				delete defines[ name ];
+
 
 		return material;
 
