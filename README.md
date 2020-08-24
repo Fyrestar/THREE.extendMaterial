@@ -7,7 +7,7 @@ For patching in onBeforeCompile:
 `THREE.patchShader( object [, options])`
 
 
-```
+```javascript
 const myMaterial = THREE.extendMaterial(THREE.MeshPhongMaterial, {
 
     // Will be prepended to vertex and fragment code
@@ -63,7 +63,7 @@ none | append
 
 It is possible to inherit materials and their actual shader code patches recursively. This is useful when creating alternative versions of a material with a different kind of base material, for example a MeshDepthMaterial.
 
-```
+```javascript
 const depthMaterial = THREE.extendMaterial( THREE.MeshDepthMaterial, {
 	
 	extends: aExtendedMaterial
