@@ -1,7 +1,6 @@
 // Author: Fyrestar https://mevedia.com (https://github.com/Fyrestar/ShaderMaterialExtend)
 THREE.extendMaterial = THREE.ShaderMaterial.extend = function () {
 
-
 	const Materials = [
 		THREE.ShadowMaterial,
 		THREE.SpriteMaterial,
@@ -27,7 +26,7 @@ THREE.extendMaterial = THREE.ShaderMaterial.extend = function () {
 		THREE.ParticleBasicMaterial,
 		THREE.ParticleSystemMaterial
 	];
-
+	
 	// Type on prototype needed to identify when minified
 
 	THREE.ShadowMaterial.prototype.type = 'ShadowMaterial';
@@ -303,6 +302,9 @@ THREE.extendMaterial = THREE.ShaderMaterial.extend = function () {
 		let vertexShader = ( object.vertexHeader || '' ) + shader.vertexShader;
 		let fragmentShader = ( object.fragmentHeader || '' ) + shader.fragmentShader;
 
+		if ( object.vertexEnd )
+			vertexShader = vertexShader.replace( /\}(?=[^.]*$)/g, object.vertexEnd + '\n}' );
+
 		if ( object.fragmentEnd )
 			fragmentShader = fragmentShader.replace( /\}(?=[^.]*$)/g, object.fragmentEnd + '\n}' );
 
@@ -385,7 +387,7 @@ THREE.extendMaterial = THREE.ShaderMaterial.extend = function () {
 
 			if ( mapping === undefined ) {
 
-				console.error( 'THREE.extendMaterial: no mapping for material class "%s" found', name );
+				console.error( 'THREE.ShaderMaterial.extend: no mapping for material class "%s" found', name );
 
 				return material;
 
@@ -419,7 +421,7 @@ THREE.extendMaterial = THREE.ShaderMaterial.extend = function () {
 
 			if ( mapping === undefined ) {
 
-				console.error( 'THREE.extendMaterial: no mapping for material class "%s" found', name );
+				console.error( 'THREE.ShaderMaterial.extend: no mapping for material class "%s" found', name );
 
 				return material;
 
@@ -464,6 +466,9 @@ THREE.extendMaterial = THREE.ShaderMaterial.extend = function () {
 		properties.uniforms = uniforms;
 		properties.vertexShader = header + ( object.vertexHeader || '' ) + vertexShader;
 		properties.fragmentShader = header + ( object.fragmentHeader || '' ) + fragmentShader;
+
+		if ( object.vertexEnd )
+			properties.vertexShader = properties.vertexShader.replace( /\}(?=[^.]*$)/g, object.vertexEnd + '\n}' );
 
 		if ( object.fragmentEnd )
 			properties.fragmentShader = properties.fragmentShader.replace( /\}(?=[^.]*$)/g, object.fragmentEnd + '\n}' );
