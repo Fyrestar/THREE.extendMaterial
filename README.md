@@ -61,7 +61,9 @@ none | append
 
 ## Inheritation
 
-It is possible to inherit materials and their actual shader code patches recursively. This is useful when creating alternative versions of a material with a different kind of base material, for example a MeshDepthMaterial.
+It is possible to inherit materials and their actual shader code patches recursively. This is useful when creating alternative versions of a material with a different kind of base material.
+
+For example you extended MeshStandardMaterial with some vertex distortions to add wind motion, in order to have them in the shadows too you need to create a custom depth material. You even might extended this material for another mesh with another distortion effect, without having to know all changes and hardcode/patch them again you can define `extends` with the material you want to inherit patches from, it will apply the previous code patches accordingly.
 
 ```javascript
 const depthMaterial = THREE.extendMaterial( THREE.MeshDepthMaterial, {
