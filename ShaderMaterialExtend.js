@@ -436,7 +436,7 @@ THREE.extendMaterial = THREE.ShaderMaterial.extend = function () {
 			// Apply properties to uniforms
 
 			for ( let name in uniforms )
-				if ( source[ name ] )
+				if ( source[ name ] !== undefined )
 					uniforms[ name ].value = source[ name ];
 
 		}
