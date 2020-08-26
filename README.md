@@ -81,7 +81,9 @@ const depthMaterial = THREE.extendMaterial( THREE.MeshDepthMaterial, {
 ## Version 2
 
 - A new `THREE.CustomMaterial` which stays more compatible to the in-built materials when extending those
-- By defining `class` in the options another type of material can be used instead ShaderMaterial (e.g CustomMaterial)
+- `class` property in options to use another material class than ShaderMaterial (e.g CustomMaterial)
+- `mixed` property in uniforms to pass them from templates
+- `linked` property in uniforms to share them when used as template but **not** when extending them, this ensures you don't have to sync. uniforms from your original material with the depth material for shadows for example
 - Compatibility with RawShaderMaterial
 - Uniforms can be given now as wrapper-object or their value
 - Cloning materials now respects shared uniforms
