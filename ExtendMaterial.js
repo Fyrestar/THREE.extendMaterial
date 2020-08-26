@@ -1,0 +1,1058 @@
+// Author: Fyrestar https://mevedia.com (https://github.com/Fyrestar/THREE.extendMaterial)
+(function ( THREE ) {
+
+
+	const {
+		UniformsLib,
+		Vector2,
+		Color,
+
+		TangentSpaceNormalMap,
+		ShaderMaterial,
+		RawShaderMaterial
+	} = THREE;
+
+
+	// Fix missing pairs
+
+	UniformsLib.clearcoatnormalmap = {
+		clearcoatNormalScale: { value: new Vector2( 1, 1 ) }
+	};
+
+
+	// Patch materials
+
+	const Materials = [
+		'MeshDistanceMaterial',
+		'MeshMatcapMaterial',
+		'ShadowMaterial',
+		'SpriteMaterial',
+		'RawShaderMaterial',
+		'ShaderMaterial',
+		'PointsMaterial',
+		'MeshPhysicalMaterial',
+		'MeshStandardMaterial',
+		'MeshPhongMaterial',
+		'MeshToonMaterial',
+		'MeshNormalMaterial',
+		'MeshLambertMaterial',
+		'MeshDepthMaterial',
+		'MeshBasicMaterial',
+		'LineDashedMaterial',
+		'LineBasicMaterial',
+		'Material',
+		'MeshFaceMaterial',
+		'MultiMaterial',
+		'PointCloudMaterial',
+		'ParticleBasicMaterial',
+		'ParticleSystemMaterial'
+	];
+
+	for ( let name of Materials ) {
+
+		if ( THREE[ name ] !== undefined ) {
+
+			const prototype = THREE[ name ].prototype;
+
+			// Type on prototype needed to identify when minified
+
+			prototype.type = name;
+			prototype.customDepthMaterial = null;
+			prototype.customDistanceMaterial = null;
+			prototype.templates = [];
+
+		}
+
+	}
+
+
+	// New material methods
+
+	const _clone = THREE.ShaderMaterial.prototype.clone;
+
+	function clone() {
+
+		const clone = _clone.call( this );
+
+		clone.templates = this.templates;
+
+		return clone;
+
+	}
+
+	function link( source ) {
+
+		if ( source && source.uniforms ) {
+
+			for ( let name in source.uniforms ) {
+
+				if ( source.uniforms[ name ].linked )
+					this.uniforms[ name ] = source.uniforms[ name ];
+
+			}
+
+		}
+
+		return this;
+
+	}
+
+	function copy( source ) {
+
+		THREE.Material.prototype.copy.call( this, source );
+
+		this.fragmentShader = source.fragmentShader;
+		this.vertexShader = source.vertexShader;
+
+		this.uniforms = cloneUniforms( source.uniforms );
+
+		this.defines = Object.assign( {}, source.defines );
+
+		this.wireframe = source.wireframe;
+		this.wireframeLinewidth = source.wireframeLinewidth;
+
+		this.lights = source.lights;
+		this.clipping = source.clipping;
+
+		this.skinning = source.skinning;
+
+		this.morphTargets = source.morphTargets;
+		this.morphNormals = source.morphNormals;
+
+		this.extensions = source.extensions;
+
+
+		if ( source.customDepthMaterial )
+			this.customDepthMaterial = source.customDepthMaterial.clone().link( this );
+
+		if ( source.customDistanceMaterial )
+			this.customDistanceMaterial = source.customDistanceMaterial.clone().link( this );
+
+
+		return this;
+
+	}
+
+	function uniform( name ) {
+
+		if ( this.uniforms[ name ] === undefined )
+			this.uniforms[ name ] = { value: null };
+
+		return this.uniforms[ name ];
+
+	}
+
+	function extend( source, object ) {
+
+		object = object || {};
+
+
+		// Extend from class or shader material
+
+		let uniforms = {}, vertexShader = '', fragmentShader = '';
+
+
+		// Inherit from previous material templates chain
+
+		const base = object.template || object.extends;
+		const MaterialClass = object.class || ( source.isMaterial && source.constructor ? source.constructor : null ) || THREE.ShaderMaterial;
+
+
+		// New shader material
+
+		const material = new MaterialClass;
+		const properties = object.material = object.material || {};
+		const defines = Object.assign( {}, properties.defines );
+
+
+		// Template chain
+
+		material.templates = [ object ];
+
+		if ( source.templates instanceof Array )
+			material.templates = source.templates.concat( material.templates );
+
+
+		if ( source instanceof Function ) {
+
+			// Source is a constructor
+
+			const name = source.prototype.type;
+			const mapping = mappings[ name ];
+
+			if ( mapping === undefined ) {
+
+				console.error( 'THREE.extendMaterial: no mapping for material class "%s" found', name );
+
+				return material;
+
+			}
+
+
+			properties.lights = properties.lights === undefined ? true : properties.lights;
+
+			uniforms = mapUniforms( mapping.name, uniforms, object );   // Use only declared/necessary uniforms or all
+			vertexShader = THREE.ShaderChunk[ mapping.id + '_vert' ];
+			fragmentShader = THREE.ShaderChunk[ mapping.id + '_frag' ];
+
+
+		} else if ( source.isShaderMaterial ) {
+
+			// Source is a ShaderMaterial
+
+			uniforms = cloneUniforms( source.uniforms, uniforms );    // Use uniforms of previous material
+			vertexShader = source.vertexShader;
+			fragmentShader = source.fragmentShader;
+
+			material.copy( source, false );
+
+			if ( source.defines )
+				Object.assign( defines, source.defines );
+
+		} else {
+
+			// Source is a material instance
+
+			const name = source.type;
+			const mapping = mappings[ name ];
+
+			if ( mapping === undefined ) {
+
+				console.error( 'THREE.extendMaterial: no mapping for material class "%s" found', name );
+
+				return material;
+
+			}
+
+
+			properties.lights = properties.lights === undefined ? true : properties.lights;
+
+			uniforms = mapUniforms( mapping.name, uniforms, object );
+			vertexShader = THREE.ShaderChunk[ mapping.id + '_vert' ];
+			fragmentShader = THREE.ShaderChunk[ mapping.id + '_frag' ];
+
+
+			// Built-in properties to uniforms ( if explicit not disabled, those being null will be skipped )
+
+			const defaults = THREE.ShaderLib[ mapping.name ].uniforms;
+
+			for ( let name in defaults )
+				if ( uniforms[ name ] === undefined && source[ name ] !== undefined && ( source[ name ] !== null || object.explicit === false ) ) {
+
+					uniforms[ name ] = uniforms[ name ] || { value: null };
+					uniforms[ name ].value = source[ name ];
+
+				}
+
+		}
+
+		// Override constants
+
+		if ( object.defines )
+			Object.assign( defines, object.defines );
+
+
+		// A shared header ( varyings, uniforms, functions etc )
+
+		let header = ( object.header || '' ) + '\n';
+
+
+		// Insert or replace lines (@ to replace)
+
+		if ( object.vertex !== undefined )
+			vertexShader = applyPatches( vertexShader, object.vertex );
+
+
+		if ( object.fragment !== undefined )
+			fragmentShader = applyPatches( fragmentShader, object.fragment );
+
+
+		properties.defines = defines;
+		properties.uniforms = uniforms;
+		properties.vertexShader = header + ( object.vertexHeader || '' ) + '\n' + vertexShader;
+		properties.fragmentShader = header + ( object.fragmentHeader || '' ) + '\n' + fragmentShader;
+
+		if ( object.vertexEnd )
+			properties.vertexShader = properties.vertexShader.replace( /\}(?=[^.]*$)/g, object.vertexEnd + '\n}' );
+
+		if ( object.fragmentEnd )
+			properties.fragmentShader = properties.fragmentShader.replace( /\}(?=[^.]*$)/g, object.fragmentEnd + '\n}' );
+
+
+
+		// Uniforms override
+
+		if ( object.override ) {
+
+			for ( let name in object.override ) {
+
+				const src = object.override[ name ];
+				const dst = uniforms[ name ] = uniforms[ name ] || { value: null };
+
+				for ( let k in src )
+					dst[ k ] = src[ k ];
+
+				// Expose mixed uniforms to template if not exposed yet ( material before might have been built-in )
+
+				if ( dst.mixed ) {
+
+					if ( !object.uniforms )
+						object.uniforms = {};
+
+					object.uniforms[ name ] = dst;
+
+				}
+
+			}
+
+		}
+
+
+		// Apply base templates, uniforms that are required in a template must be flagged as mixed to get inherited
+
+		if ( base && base.templates && base.templates.length ) {
+
+			for ( let template of base.templates )
+				patchShader( properties, template, mixUniforms, defines );
+
+			// Linked uniforms: Assign linked uniforms of base template material
+
+			for ( let name in base.uniforms ) {
+
+				const src = base.uniforms[ name ];
+
+				if ( src.linked )
+					uniforms[ name ] = src;
+
+			}
+
+		}
+
+
+		// Applies uniforms defined for this new material
+
+		applyUniforms( material, object, properties, defines );
+
+
+
+		// Finally apply material properties
+
+		material.setValues( properties );
+
+
+		// Fix: since we use #ifdef false would be false positive
+
+		for ( let name in defines )
+			if ( defines[ name ] === false )
+				delete defines[ name ];
+
+		// Fix: default for depth material packing
+
+		if ( ( source.isMeshDepthMaterial || source === THREE.MeshDepthMaterial ) && defines.DEPTH_PACKING === undefined )
+			defines.DEPTH_PACKING = THREE.RGBADepthPacking;
+
+
+
+		return material;
+
+
+	}
+
+	Object.assign( RawShaderMaterial.prototype, { extend, uniform, clone, link, copy } );
+	Object.assign( ShaderMaterial.prototype, { extend, uniform, clone, link, copy } );
+
+
+	// Polyfill to allow custom depth/distance materials as material variation
+
+	if ( THREE.ShaderMaterial.prototype.customDepthMaterial !== undefined ) {
+
+		const MeshPolyfill = {
+
+			_customDepthMaterial: {
+				enumerable: true,
+				value: null,
+				writable: true
+			},
+
+			_customDistanceMaterial: {
+				enumerable: true,
+				value: null,
+				writable: true
+			},
+
+			customDepthMaterial: {
+
+				get: function() {
+
+					return this._customDepthMaterial || ( this.material ? this.material.customDepthMaterial : null );
+
+				},
+
+				set: function( value ) {
+
+					this._customDepthMaterial = value;
+
+				}
+
+			},
+
+			customDistanceMaterial: {
+
+				get: function() {
+
+					return this._customDistanceMaterial || ( this.material ? this.material.customDistanceMaterial : null );
+
+				},
+
+				set: function( value ) {
+
+					this._customDistanceMaterial = value;
+
+				}
+
+			}
+
+		};
+
+		Object.defineProperties( THREE.Mesh.prototype, MeshPolyfill );
+		Object.defineProperties( THREE.SkinnedMesh.prototype, MeshPolyfill );
+
+	}
+
+
+	// A built-in materials compatible ShaderMaterial
+
+	THREE.CustomMaterial = function CustomMaterial( object ) {
+
+		ShaderMaterial.call( this, object );
+
+		this.type = 'CustomMaterial';
+
+	};
+
+	Object.assign(
+		THREE.CustomMaterial.prototype,
+		THREE.Material.prototype,
+		THREE.ShaderMaterial.prototype,
+		THREE.EventDispatcher.prototype,
+		{
+
+			constructor: THREE.CustomMaterial,
+
+			map: null,
+			aoMap: null,
+			envMap: null,
+			bumpMap: null,
+			normalMap: null,
+			lightMap: null,
+			emissiveMap: null,
+			specularMap: null,
+			roughnessMap: null,
+			metalnessMap: null,
+			alphaMap: null,
+			displacementMap: null,
+			clearcoatMap: null,
+			clearcoatRoughnessMap: null,
+			clearcoatNormalMap: null,
+
+			normalMapType: TangentSpaceNormalMap,
+
+			clone: function( source ) {
+
+				const clone = _clone.call( this );
+
+				if ( this.map ) clone.map = this.map;
+				if ( this.aoMap ) clone.aoMap = this.aoMap;
+				if ( this.envMap ) clone.envMap = this.envMap;
+				if ( this.bumpMap ) clone.bumpMap = this.bumpMap;
+				if ( this.normalMap ) clone.normalMap = this.normalMap;
+				if ( this.lightMap ) clone.lightMap = this.lightMap;
+				if ( this.emissiveMap ) clone.emissiveMap = this.emissiveMap;
+				if ( this.specularMap ) clone.specularMap = this.specularMap;
+				if ( this.roughnessMap ) clone.roughnessMap = this.roughnessMap;
+				if ( this.metalnessMap ) clone.metalnessMap = this.metalnessMap;
+				if ( this.alphaMap ) clone.alphaMap = this.alphaMap;
+				if ( this.displacementMap ) clone.displacementMap = this.displacementMap;
+				if ( this.clearcoatMap ) clone.clearcoatMap = this.clearcoatMap;
+				if ( this.clearcoatRoughnessMap ) clone.clearcoatRoughnessMap = this.clearcoatRoughnessMap;
+				if ( this.clearcoatNormalMap ) clone.clearcoatNormalMap = this.clearcoatNormalMap;
+
+				clone.templates = this.templates;
+
+				return clone;
+			}
+
+		}
+	);
+
+
+
+
+
+	let sharedLightsUniforms;
+
+	// Class name to internal lib names
+
+	const mappings = {
+		MeshLambertMaterial: {
+			id: 'meshlambert',
+			name: 'lambert'
+		},
+		MeshBasicMaterial: {
+			id: 'meshbasic',
+			name: 'basic'
+		},
+		MeshStandardMaterial: {
+			id: 'meshphysical',
+			name: 'physical'
+		},
+		MeshPhongMaterial: {
+			id: 'meshphong',
+			name: 'phong'
+		},
+		MeshMatcapMaterial: {
+			id: 'meshmatcap',
+			name: 'matcap'
+		},
+		PointsMaterial: {
+			id: 'points',
+			name: 'points'
+		},
+		LineDashedMaterial: {
+			id: 'dashed',
+			name: 'linedashed'
+		},
+		MeshDepthMaterial: {
+			id: 'depth',
+			name: 'depth'
+		},
+		MeshNormalMaterial: {
+			id: 'normal',
+			name: 'normal'
+		},
+		MeshDistanceMaterial: {
+			id: 'distanceRGBA',
+			name: 'distanceRGBA'
+		},
+		SpriteMaterial: {
+			id: 'sprite',
+			name: 'sprite'
+		}
+	};
+
+	// Aliases for shorter code hints
+
+	const aliases = {
+		lightsBegin: '?#include <lights_fragment_maps>',
+		lightsEnd: '?#include <aomap_fragment>',
+		colorBegin: '?#include <logdepthbuf_fragment>',
+		colorEnd: '?#include <tonemapping_fragment>',
+		transformBegin: '?#include <morphtarget_vertex>',
+		transformEnd: '?#include <project_vertex>'
+	};
+
+	// Converts properties to constant definition
+
+	const uniformFlags = {
+		alphaTest: {
+			as: 'ALPHATEST',
+			not: 0
+		}
+	};
+
+	// Set of required uniforms ( which aren't null or zero )
+
+	const uniforms = {
+		opacity: { value: 1.0 },
+		specular: { value: new Color( 0x111111 ) }
+	};
+
+	const requiredUniforms = {
+		points: UniformsLib.points,
+		sprite: UniformsLib.sprite,
+		dashed: {
+			scale: { value: 1 },
+			dashSize: { value: 1 },
+			totalSize: { value: 2 }
+		},
+		normal: {
+			opacity: uniforms.opacity
+		},
+		toon: {
+			specular: uniforms.specular,
+			shininess: { value: 30 }
+		},
+		standard: {
+			roughness: { value: 0.5 },
+			metalness: { value: 0.5 },
+			envMapIntensity: { value: 1 } // temporary
+		},
+		phong: {
+			specular: uniforms.specular,
+			shininess: { value: 30 }
+		},
+		cube: {
+			opacity: uniforms.opacity
+		},
+		distanceRGBA: {
+			nearDistance: { value: 1 },
+			farDistance: { value: 1000 }
+		},
+		shadow: {
+			opacity: uniforms.opacity
+		}
+	};
+
+	// Constant definitions for which maps are used
+
+	const mapFlags = {
+		map: 'USE_MAP',
+		aoMap: 'USE_AOMAP',
+		envMap: 'USE_ENVMAP',
+		bumpMap: 'USE_BUMPMAP',
+		normalMap: 'USE_NORMALMAP',
+		lightMap: 'USE_LIGHTMAP',
+		emissiveMap: 'USE_EMISSIVEMAP',
+		specularMap: 'USE_SPECULARMAP',
+		roughnessMap: 'USE_ROUGHNESSMAP',
+		metalnessMap: 'USE_METALNESSMAP',
+		alphaMap: 'USE_ALPHAMAP',
+		displacementMap: 'USE_DISPLACEMENTMAP'
+	};
+
+
+
+	function useUniformPairs( instance, uniforms ) {
+
+		// Only pairs with initial values other than null or zero needed
+
+		if ( !instance ) return;
+
+		if ( instance.envMap )
+			cloneUniforms( UniformsLib.envmap, uniforms );
+
+		if ( instance.aoMap )
+			cloneUniforms( UniformsLib.aomap, uniforms );
+
+		if ( instance.lightMap )
+			cloneUniforms( UniformsLib.lightmap, uniforms );
+
+		if ( instance.bumpMap )
+			cloneUniforms( UniformsLib.bumpmap, uniforms );
+
+		if ( instance.normalMap )
+			cloneUniforms( UniformsLib.normalmap, uniforms );
+
+		if ( instance.displacementMap )
+			cloneUniforms( UniformsLib.displacementmap, uniforms );
+
+		if ( instance.clearcoatNormalMap )
+			cloneUniforms( UniformsLib.clearcoatnormalmap, uniforms );
+
+
+	}
+
+	function useUniforms( name, object, uniforms ) {
+
+		useUniformPairs( object.uniforms, uniforms  );
+
+		if ( object.common !== false )
+			cloneUniforms( UniformsLib.common, uniforms );
+
+		if ( requiredUniforms[ name ] !== undefined )
+			cloneUniforms( requiredUniforms[ name ], uniforms );
+
+		const fog = object.fog || ( object.material ? object.material.fog || object.material.useFog : null );
+		const lights = object.lights || ( object.material ? object.material.lights : null );
+
+		if ( fog )
+			cloneUniforms( UniformsLib.fog, uniforms );
+
+		if ( lights) {
+
+			if ( object.use ) {
+
+				const use = object.use;
+				const shared = use.indexOf('sharedLights') > -1;
+				const shadows = use.indexOf('shadows') > -1;
+
+				if ( use.indexOf('PointLight') > -1 ) {
+
+					cloneUniforms( UniformsLib.lights.pointLights, uniforms );
+
+					if ( shadows ) {
+
+						cloneUniforms( UniformsLib.pointLightShadows, uniforms );
+						cloneUniforms( UniformsLib.pointShadowMap, uniforms );
+						cloneUniforms( UniformsLib.pointShadowMatrix, uniforms );
+
+					}
+
+				}
+
+				if ( use.indexOf('SpotLight') > -1 ) {
+
+					cloneUniforms( UniformsLib.lights.spotLights, uniforms );
+
+					if ( shadows ) {
+
+						cloneUniforms( UniformsLib.spotLightShadows, uniforms );
+						cloneUniforms( UniformsLib.spotShadowMap, uniforms );
+						cloneUniforms( UniformsLib.spotShadowMatrix, uniforms );
+
+					}
+
+				}
+
+				if ( use.indexOf('DirectionalLight') > -1 ) {
+
+					cloneUniforms( UniformsLib.lights.directionalLights, uniforms );
+
+					if ( shadows ) {
+
+						cloneUniforms( UniformsLib.directionalLightShadows, uniforms );
+						cloneUniforms( UniformsLib.directionalShadowMap, uniforms );
+						cloneUniforms( UniformsLib.directionalShadowMatrix, uniforms );
+
+					}
+
+				}
+
+				if ( use.indexOf('LightProbe') > -1 )
+					cloneUniforms( UniformsLib.lights.lightProbe, uniforms );
+
+				if ( use.indexOf('AmbientLight') > -1 )
+					cloneUniforms( UniformsLib.lights.ambientLightColor, uniforms );
+
+				if ( use.indexOf('ReactAreaLight') > -1 )
+					cloneUniforms( UniformsLib.lights.rectAreaLights, uniforms );
+
+				if ( use.indexOf('HemisphereLight') > -1 )
+					cloneUniforms( UniformsLib.lights.hemisphereLights, uniforms );
+
+			} else {
+
+				cloneUniforms( sharedLightsUniforms, uniforms );
+
+			}
+
+
+		}
+
+		return uniforms;
+
+	}
+
+	function cloneUniform( src, dst ) {
+
+
+		dst = dst || {};
+
+		for ( let key in src ) {
+
+
+			const property = src[ key ];
+
+			if ( property && ( property.isColor ||
+				property.isMatrix3 || property.isMatrix4 ||
+				property.isVector2 || property.isVector3 || property.isVector4 ||
+				property.isTexture ) ) {
+
+				dst[ key ] = property.clone();
+
+			} else if ( Array.isArray( property ) ) {
+
+				dst[ key ] = property.slice();
+
+			} else {
+
+				dst[ key ] = property;
+
+			}
+
+		}
+
+		return dst;
+
+	}
+
+	function makeUniform( value ) {
+
+		return value && value.value !== undefined ? value : { value : value };
+
+	}
+
+
+	function cloneUniforms( src, dst, notNull = false, share = false, mix = false, link = false ) {
+
+		dst = dst || {};
+
+		for ( let u in src ) {
+
+			const uniform = src[ u ];
+
+			if ( !uniform ) continue;
+
+			if ( notNull ) {
+
+				// Uniforms with null are skipped
+
+				if ( uniform.value === null || uniform.value === 0 )
+					continue;
+
+				// Their parameters then too
+			}
+
+			if ( uniform.shared || ( uniform.linked && link ) ) {
+
+				dst[ u ] = uniform;
+
+			} else {
+
+				dst[ u ] = cloneUniform( uniform );
+
+				if ( share === true )
+					dst[ u ].shared = true;
+
+				if ( mix === true )
+					dst[ u ].mixed = true;
+			}
+
+		}
+
+		return dst;
+
+	}
+
+	function applyPatches( chunk, map ) {
+
+		for ( let name in map ) {
+
+			const value = map[ name ];
+
+			if ( aliases[ name ] !== undefined )
+				name = aliases[ name ];
+
+
+			if ( value instanceof Object ) {
+
+				if ( THREE.ShaderChunk[ name ] === undefined ) {
+
+					console.error( 'THREE.ShaderMaterial.extend: ShaderChunk "%s" not found', name );
+
+				} else {
+
+					chunk = chunk.replace( '#include <' + name + '>', applyPatches( THREE.ShaderChunk[ name ], value ) );
+
+				}
+
+			} else {
+
+
+				if ( name[ 0 ] === '@' ) {
+
+					// Replace
+
+					const line = name.substr( 1 );
+
+					chunk = chunk.replace( line, value );
+
+				} else if ( name[ 0 ] === '?' ) {
+
+					// Insert before
+
+					const line = name.substr( 1 );
+
+					chunk = chunk.replace( line, value + '\n' + line );
+
+				} else {
+
+					// Insert after
+
+					if ( !chunk ) {
+
+						console.error( "THREE.patchShader: chunk not found '%s'", name );
+
+					} else {
+
+						chunk = chunk.replace( name, name + '\n' + value );
+
+					}
+
+				}
+
+			}
+
+		}
+
+		return chunk;
+
+	}
+
+	function applyConstants( name, uniform, defines, object, instance ) {
+
+
+		// Maps require USE_X constants
+
+		if ( mapFlags[ name ] !== undefined && uniform && uniform.value ) {
+
+
+			defines.USE_UV = true;
+
+			// Expose uniform to be detected
+
+			if ( instance[ name ] !== undefined ) {
+
+				instance[ name ] = uniform.value;
+
+			} else {
+
+				defines[ mapFlags[ name ] ] = true;
+
+			}
+
+		}
+
+
+		// Converts properties like alphaTest to their constant
+
+		const flag = uniformFlags[ name ];
+
+		if ( flag !== undefined && ( flag.not === undefined || flag.not !== value ) )
+			defines[ flag.as ] = uniform.value;
+
+
+	}
+
+	// applyUniforms: Adds or overrides src uniforms to dst
+
+	function applyUniforms( instance, src, dst, defines ) {
+
+		if ( !src.uniforms || !dst )
+			return;
+
+		for ( let name in src.uniforms ) {
+
+			if ( !dst.uniforms[ name ] )
+				dst.uniforms[ name ] = {};
+
+
+			// Accepts uniform objects and plain values
+
+			let uniform = makeUniform( src.uniforms[ name ] );
+
+			if ( defines && applyConstants( name, uniform, defines, src, instance ) === false ) continue;
+
+			dst.uniforms[ name ] = uniform;
+
+
+		}
+	}
+
+	// mixUniforms: Only adds new uniforms which are declared as mixed
+
+	function mixUniforms( src, dst, defines ) {
+
+		// Only mixed uniforms are passed to dst, only if they not exist
+
+		if ( !src.uniforms )
+			return;
+
+		for ( let name in src.uniforms ) {
+
+			let uniform = src.uniforms[ name ];
+
+			if ( !uniform ) continue;
+
+			uniform = makeUniform( uniform );
+
+
+			if ( uniform.mixed && dst.uniforms[ name ] === undefined ) {
+
+				dst.uniforms[ name ] = uniform.shared ? uniform : cloneUniform( uniform );
+
+
+				if ( defines ) applyConstants( name, uniform, defines, src );
+
+			}
+
+
+		}
+
+
+	}
+
+
+	function mapUniforms( name, uniforms, object ) {
+
+		if ( object.explicit === false ) {
+
+			// Use all possible uniforms
+
+			return cloneUniforms( THREE.ShaderLib[ name ].uniforms, uniforms );
+
+		} else {
+
+			// Only use declared and necessary
+
+			return useUniforms( name, object, uniforms ); // cloneUniforms( THREE.ShaderLib[ name ].uniforms, uniforms, true );
+
+		}
+
+
+	}
+
+	function mapShader ( name, type ) {
+
+		const mapping = mappings[ name ];
+
+		return THREE.ShaderChunk[ mapping.id + '_' + ( type === 'vertex' ? 'vert' : 'frag' ) ];
+
+	}
+
+	function patchShader ( shader, object, uniformsMixer = applyUniforms, defines = null ) {
+
+		// A shared header ( varyings, uniforms, functions etc )
+
+		let header = ( object.header || '' ) + '\n';
+		let vertexShader = ( object.vertexHeader || '' ) + '\n' + shader.vertexShader;
+		let fragmentShader = ( object.fragmentHeader || '' ) + '\n' + shader.fragmentShader;
+
+		if ( object.vertexEnd )
+			vertexShader = vertexShader.replace( /\}(?=[^.]*$)/g, object.vertexEnd + '\n}' );
+
+		if ( object.fragmentEnd )
+			fragmentShader = fragmentShader.replace( /\}(?=[^.]*$)/g, object.fragmentEnd + '\n}' );
+
+		// Insert or replace lines (@ to replace)
+
+		if ( object.vertex !== undefined )
+			vertexShader = applyPatches( vertexShader, object.vertex );
+
+
+		if ( object.fragment !== undefined )
+			fragmentShader = applyPatches( fragmentShader, object.fragment );
+
+
+		shader.vertexShader = header + vertexShader;
+		shader.fragmentShader = header + fragmentShader;
+
+
+		if ( uniformsMixer instanceof Function )
+			uniformsMixer( object, shader, defines );
+
+
+		return shader;
+
+	}
+
+
+	sharedLightsUniforms = cloneUniforms( UniformsLib.lights, {}, false, true );
+
+	THREE.cloneUniforms = cloneUniforms;
+	THREE.cloneUniform = cloneUniform;
+	THREE.patchShader = patchShader;
+	THREE.mapShader = mapShader;
+	THREE.extendMaterial = extend;
+
+}( THREE ));
