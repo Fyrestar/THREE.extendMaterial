@@ -1,6 +1,7 @@
-// Author: Fyrestar https://mevedia.com (https://github.com/Fyrestar/THREE.extendMaterial)
 (function ( THREE ) {
 
+
+	// Author: Fyrestar https://mevedia.com (https://github.com/Fyrestar/THREE.extendMaterial)
 
 	const {
 		UniformsLib,
@@ -47,6 +48,7 @@
 		'ParticleBasicMaterial',
 		'ParticleSystemMaterial'
 	];
+
 
 	for ( let name of Materials ) {
 
@@ -172,12 +174,13 @@
 		if ( source.templates instanceof Array )
 			material.templates = source.templates.concat( material.templates );
 
+		let name;
 
 		if ( source instanceof Function ) {
 
 			// Source is a constructor
 
-			const name = source.prototype.type;
+			name = source.prototype.type;
 			const mapping = mappings[ name ];
 
 			if ( mapping === undefined ) {
@@ -200,6 +203,8 @@
 
 			// Source is a ShaderMaterial
 
+			name = source.type;
+
 			uniforms = cloneUniforms( source.uniforms, uniforms );    // Use uniforms of previous material
 			vertexShader = source.vertexShader;
 			fragmentShader = source.fragmentShader;
@@ -213,7 +218,7 @@
 
 			// Source is a material instance
 
-			const name = source.type;
+			name = source.type;
 			const mapping = mappings[ name ];
 
 			if ( mapping === undefined ) {
@@ -245,6 +250,13 @@
 				}
 
 		}
+
+
+		// ShaderMaterial in disguise
+
+		if ( material.isCustomMaterial )
+			material[ 'is' + name ] = true;
+
 
 		// Override constants
 
@@ -312,8 +324,11 @@
 
 		if ( base && base.templates && base.templates.length ) {
 
+			object.class = object.class || base.class;
+
 			for ( let template of base.templates )
 				patchShader( properties, template, mixUniforms, defines );
+
 
 			// Linked uniforms: Assign linked uniforms of base template material
 
@@ -334,10 +349,20 @@
 		applyUniforms( material, object, properties, defines );
 
 
-
 		// Finally apply material properties
 
 		material.setValues( properties );
+
+		if ( material.isCustomMaterial ) {
+
+			for ( let name in uniforms ) {
+
+				if ( mapFlags[ name ] && uniforms[ name ].value )
+					material[ name ] = uniforms[ name ];
+
+			}
+
+		}
 
 
 		// Fix: since we use #ifdef false would be false positive
@@ -370,13 +395,13 @@
 
 			_customDepthMaterial: {
 				enumerable: true,
-				value: null,
+				value: undefined,
 				writable: true
 			},
 
 			_customDistanceMaterial: {
 				enumerable: true,
-				value: null,
+				value: undefined,
 				writable: true
 			},
 
@@ -384,7 +409,7 @@
 
 				get: function() {
 
-					return this._customDepthMaterial || ( this.material ? this.material.customDepthMaterial : null );
+					return this._customDepthMaterial || ( this.material && this.material.customDepthMaterial ? this.material.customDepthMaterial : undefined );
 
 				},
 
@@ -400,7 +425,7 @@
 
 				get: function() {
 
-					return this._customDistanceMaterial || ( this.material ? this.material.customDistanceMaterial : null );
+					return this._customDistanceMaterial || ( this.material && this.material.customDistanceMaterial ? this.material.customDistanceMaterial : undefined );
 
 				},
 
@@ -437,6 +462,32 @@
 		THREE.EventDispatcher.prototype,
 		{
 
+			isShaderMaterial: true,
+			isCustomMaterial: true,
+			isMeshPhongMaterial: false,
+			isMeshDistanceMaterial: false,
+			isMeshMatcapMaterial: false,
+			isShadowMaterial: false,
+			isSpriteMaterial: false,
+			isRawShaderMaterial: false,
+			isPointsMaterial: false,
+			isMeshPhysicalMaterial: false,
+			isMeshStandardMaterial: false,
+			isMeshPhongMaterial: false,
+			isMeshToonMaterial: false,
+			isMeshNormalMaterial: false,
+			isMeshLambertMaterial: false,
+			isMeshDepthMaterial: false,
+			isMeshBasicMaterial: false,
+			isLineDashedMaterial: false,
+			isLineBasicMaterial: false,
+			isMaterial: false,
+			isMeshFaceMaterial: false,
+			isMultiMaterial: false,
+			isPointCloudMaterial: false,
+			isParticleBasicMaterial: false,
+			isParticleSystemMaterial: false,
+
 			constructor: THREE.CustomMaterial,
 
 			map: null,
@@ -456,6 +507,7 @@
 			clearcoatNormalMap: null,
 
 			normalMapType: TangentSpaceNormalMap,
+			combine: THREE.MultiplyOperation,
 
 			clone: function( source ) {
 
@@ -485,6 +537,41 @@
 		}
 	);
 
+	Object.defineProperties( THREE.CustomMaterial.prototype, {
+
+		specular: {
+
+			get: function() {
+
+				return this.uniforms.specular.value;
+
+			},
+
+			set: function( value ) {
+
+				this.uniforms.specular.value = value;
+
+			}
+
+		},
+
+		shininess: {
+
+			get: function() {
+
+				return this.uniforms.shininess.value;
+
+			},
+
+			set: function( value ) {
+
+				this.uniforms.shininess.value = value;
+
+			}
+
+		}
+
+	});
 
 
 
@@ -583,7 +670,14 @@
 			shininess: { value: 30 }
 		},
 		standard: {
+			shininess: { value: 30 },
 			roughness: { value: 0.5 },
+			metalness: { value: 0.5 },
+			envMapIntensity: { value: 1 } // temporary
+		},
+		physical: {
+			shininess: { value: 30 },
+			roughness: { value: 1 },
 			metalness: { value: 0.5 },
 			envMapIntensity: { value: 1 } // temporary
 		},
@@ -897,8 +991,6 @@
 		if ( mapFlags[ name ] !== undefined && uniform && uniform.value ) {
 
 
-			defines.USE_UV = true;
-
 			// Expose uniform to be detected
 
 			if ( instance[ name ] !== undefined ) {
@@ -970,7 +1062,6 @@
 			if ( uniform.mixed && dst.uniforms[ name ] === undefined ) {
 
 				dst.uniforms[ name ] = uniform.shared ? uniform : cloneUniform( uniform );
-
 
 				if ( defines ) applyConstants( name, uniform, defines, src );
 
