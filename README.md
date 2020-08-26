@@ -1,10 +1,13 @@
 # Extending Materials
-Plugin for extending built-in materials, instances of ShaderMaterial and built-in materials as well as shader objects of onBeforeCompile
+Plugin for extending built-in materials, instances of ShaderMaterial and built-in materials as well as shader objects of `onBeforeCompile`.
+
+[**Demo**](https://codepen.io/Fyrestar/pen/jOqyppp?editors=0010): Extending MeshStandardMaterial width custom depth material
 
 `THREE.extendMaterial( constructor|material|shaderMaterial [, options])`
 
 For patching in onBeforeCompile:
 `THREE.patchShader( object [, options])`
+
 
 
 ```javascript
@@ -59,16 +62,16 @@ none | append
 ? | prepend
 @ | replace
 
-## Inheritation
+## Templates
 
-It is possible to inherit materials and their actual shader code patches recursively. This is useful when creating alternative versions of a material with a different kind of base material.
+When creating a material variation such as a depth material and the previous patched code should be applied too, defining a template will apply all previous patches again. This is useful when creating alternative versions, for example a custom depth material that also respects custom vertex transformations.
 
-For example you extended MeshStandardMaterial with some vertex distortions to add wind motion, in order to have them in the shadows too you need to create a custom depth material. You even might extended this material for another mesh with another distortion effect, without having to know all changes and hardcode/patch them again you can define `extends` with the material you want to inherit patches from, it will apply the previous code patches accordingly.
+For example you extended MeshStandardMaterial with some vertex distortions to add wind motion, in order t
 
 ```javascript
 const depthMaterial = THREE.extendMaterial( THREE.MeshDepthMaterial, {
 	
-	extends: aExtendedMaterial
+	template: myMaterial
 	
 });
 ```
@@ -79,14 +82,12 @@ const depthMaterial = THREE.extendMaterial( THREE.MeshDepthMaterial, {
 
 - Alias `THREE.extendMaterial` as shorter alternative to `THREE.ShaderMaterial.extend`
 - Fixed compatibility with minified THREE bundles
-- Inheritation (applying of previous code patches and inheriting properties)
+- Templates (applying of previous code patches and inheriting properties)
 - Uniforms can be given now as wrapper-object or their value
 - Sharing of uniform wrapper by defining a shared `{shared: true, value: .. }` boolean in a uniform object
 - vertexHeader, fragmentHeader, vertexEnd, fragmentEnd added wich will only add the given string to the corresponding part while the "End" ones will add the string at the end of the main function
 - Constants (defines) which are a boolean false will get removed as they are mainly used with #ifdef in THREE what causes a false positive for this condition
-
-
-## TODO
-
-- Adding more logic entry points to patch like `transform`, `lights` which are shared across all materials, as a shorter approach to hinting explicitly to lines
-- Filtering out unused uniforms
+- `THREE.CustomMaterial` which stays more compatible to the in-built materials when extending those
+- `customDepthMaterial` and `customDistanceMaterial` can be also defined on materials now, so it doesn't need to be assigned for every new mesh with this material
+- Uniforms are reduced to what has been defined at least with null and necessary pairs (for example normalMapScale when normalMap is defined), this saves a large amount of uniforms that aren't used
+- Lights uniforms are now shared instead cloned for every material (it's a huge set), internally THREE assigns the value for all equally anyway
