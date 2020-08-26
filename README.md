@@ -1,7 +1,7 @@
 # Extending Materials
 Plugin for extending built-in materials, instances of ShaderMaterial and built-in materials as well as shader objects of `onBeforeCompile`.
 
-[**Demo**](https://codepen.io/Fyrestar/pen/jOqyppp?editors=0010): Extending MeshStandardMaterial width custom depth material
+[**Demo**](https://codepen.io/Fyrestar/pen/jOqyppp?editors=0010): Creating new materials based on MeshStandardMaterial and custom depth material for shadows
 
 `THREE.extendMaterial( constructor|material|shaderMaterial [, options])`
 
