@@ -66,7 +66,7 @@ none | append
 
 When creating a material variation such as a depth material and the previous patched code should be applied too, defining a template will apply all previous patches again. This is useful when creating alternative versions, for example a custom depth material that also respects custom vertex transformations.
 
-For example you extended MeshStandardMaterial with some vertex distortions to add wind motion, in order t
+For example, you extended MeshStandardMaterial with some vertex distortions to add wind motion.
 
 ```javascript
 const depthMaterial = THREE.extendMaterial( THREE.MeshDepthMaterial, {
