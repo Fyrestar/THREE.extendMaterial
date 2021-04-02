@@ -358,7 +358,7 @@
 			for ( let name in uniforms ) {
 
 				if ( mapFlags[ name ] && uniforms[ name ].value )
-					material[ name ] = uniforms[ name ];
+					material[ name ] = uniforms[ name ].value;
 
 			}
 
