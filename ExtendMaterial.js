@@ -103,6 +103,20 @@
 
 		THREE.Material.prototype.copy.call( this, source );
 
+		for ( let name of mapList ) {
+
+			if ( source[ name ] )
+				this[ name ] = source[ name ];
+
+		}
+
+		for ( let name of localsList ) {
+
+			if ( source[ name ] )
+				this[ name ] = source[ name ];
+
+		}
+
 		this.fragmentShader = source.fragmentShader;
 		this.vertexShader = source.vertexShader;
 
@@ -569,6 +583,22 @@
 
 			}
 
+		},
+
+		bumpScale: {
+
+			get: function() {
+
+				return this.uniforms.bumpScale.value;
+
+			},
+
+			set: function( value ) {
+
+				this.uniforms.bumpScale.value = value;
+
+			}
+
 		}
 
 	});
@@ -579,6 +609,43 @@
 	let sharedLightsUniforms;
 
 	// Class name to internal lib names
+
+	const localsList = [
+		'bumpScale',
+		'roughness',
+		'metalness',
+		'shininess',
+		'envMapIntensity',
+		'opacity',
+		'dashSize',
+		'totalSize'
+	];
+
+	const localsMapping = {
+		bumpScale: 'bumpScale',
+		roughness: 'roughness',
+		metalness: 'metalness',
+		shininess: 'shininess',
+		envMapIntensity: 'envMapIntensity',
+		opacity: 'opacity',
+		dashSize: 'dashSize',
+		totalSize: 'totalSize'
+	};
+
+	const mapList = [
+		'map',
+		'aoMap',
+		'envMap',
+		'bumpMap',
+		'normalMap',
+		'lightMap',
+		'emissiveMap',
+		'specularMap',
+		'roughnessMap',
+		'metalnessMap',
+		'alphaMap',
+		'displacementMap'
+	];
 
 	const mappings = {
 		MeshLambertMaterial: {
@@ -984,6 +1051,12 @@
 	}
 
 	function applyConstants( name, uniform, defines, object, instance ) {
+
+
+		// Uniforms that exist but are derived from the material instance internally
+
+		if ( uniform && uniform.value && localsMapping[ name ] !== undefined )
+			instance[ name ] = uniform.value;
 
 
 		// Maps require USE_X constants
