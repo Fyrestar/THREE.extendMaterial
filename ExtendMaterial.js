@@ -583,22 +583,6 @@
 
 			}
 
-		},
-
-		bumpScale: {
-
-			get: function() {
-
-				return this.uniforms.bumpScale.value;
-
-			},
-
-			set: function( value ) {
-
-				this.uniforms.bumpScale.value = value;
-
-			}
-
 		}
 
 	});
