@@ -1,16 +1,22 @@
-(function ( THREE ) {
-
+( THREE => {
 
 	// Author: Fyrestar https://mevedia.com (https://github.com/Fyrestar/THREE.extendMaterial)
 
 	const {
+
+		ShaderChunk,
 		UniformsLib,
 		Vector2,
 		Color,
+		EventDispatcher,
 
 		TangentSpaceNormalMap,
+		MultiplyOperation,
+
+		Material,
 		ShaderMaterial,
 		RawShaderMaterial
+
 	} = THREE;
 
 
@@ -70,7 +76,7 @@
 
 	// New material methods
 
-	const _clone = THREE.ShaderMaterial.prototype.clone;
+	const _clone = ShaderMaterial.prototype.clone;
 
 	function clone() {
 
@@ -101,7 +107,7 @@
 
 	function copy( source ) {
 
-		THREE.Material.prototype.copy.call( this, source );
+		Material.prototype.copy.call( this, source );
 
 		for ( let name of mapList ) {
 
@@ -171,7 +177,7 @@
 		// Inherit from previous material templates chain
 
 		const base = object.template || object.extends;
-		const MaterialClass = object.class || ( source.isMaterial && source.constructor ? source.constructor : null ) || THREE.ShaderMaterial;
+		const MaterialClass = object.class || ( source.isMaterial && source.constructor ? source.constructor : null ) || ShaderMaterial;
 
 
 		// New shader material
@@ -209,8 +215,8 @@
 			properties.lights = properties.lights === undefined ? true : properties.lights;
 
 			uniforms = mapUniforms( mapping.name, uniforms, object );   // Use only declared/necessary uniforms or all
-			vertexShader = THREE.ShaderChunk[ mapping.id + '_vert' ];
-			fragmentShader = THREE.ShaderChunk[ mapping.id + '_frag' ];
+			vertexShader = ShaderChunk[ mapping.id + '_vert' ];
+			fragmentShader = ShaderChunk[ mapping.id + '_frag' ];
 
 
 		} else if ( source.isShaderMaterial ) {
@@ -247,8 +253,8 @@
 			properties.lights = properties.lights === undefined ? true : properties.lights;
 
 			uniforms = mapUniforms( mapping.name, uniforms, object );
-			vertexShader = THREE.ShaderChunk[ mapping.id + '_vert' ];
-			fragmentShader = THREE.ShaderChunk[ mapping.id + '_frag' ];
+			vertexShader = ShaderChunk[ mapping.id + '_vert' ];
+			fragmentShader = ShaderChunk[ mapping.id + '_frag' ];
 
 
 			// Built-in properties to uniforms ( if explicit not disabled, those being null will be skipped )
@@ -303,7 +309,6 @@
 
 		if ( object.fragmentEnd )
 			properties.fragmentShader = properties.fragmentShader.replace( /\}(?=[^.]*$)/g, object.fragmentEnd + '\n}' );
-
 
 
 		// Uniforms override
@@ -391,7 +396,6 @@
 			defines.DEPTH_PACKING = THREE.RGBADepthPacking;
 
 
-
 		return material;
 
 
@@ -403,7 +407,7 @@
 
 	// Polyfill to allow custom depth/distance materials as material variation
 
-	if ( THREE.ShaderMaterial.prototype.customDepthMaterial !== undefined ) {
+	if ( ShaderMaterial.prototype.customDepthMaterial !== undefined ) {
 
 		const MeshPolyfill = {
 
@@ -421,13 +425,13 @@
 
 			customDepthMaterial: {
 
-				get: function() {
+				get: function () {
 
 					return this._customDepthMaterial || ( this.material && this.material.customDepthMaterial ? this.material.customDepthMaterial : undefined );
 
 				},
 
-				set: function( value ) {
+				set: function ( value ) {
 
 					this._customDepthMaterial = value;
 
@@ -437,13 +441,13 @@
 
 			customDistanceMaterial: {
 
-				get: function() {
+				get: function () {
 
 					return this._customDistanceMaterial || ( this.material && this.material.customDistanceMaterial ? this.material.customDistanceMaterial : undefined );
 
 				},
 
-				set: function( value ) {
+				set: function ( value ) {
 
 					this._customDistanceMaterial = value;
 
@@ -461,7 +465,7 @@
 
 	// A built-in materials compatible ShaderMaterial
 
-	THREE.CustomMaterial = function CustomMaterial( object ) {
+	extend.CustomMaterial = function CustomMaterial( object ) {
 
 		ShaderMaterial.call( this, object );
 
@@ -470,10 +474,10 @@
 	};
 
 	Object.assign(
-		THREE.CustomMaterial.prototype,
-		THREE.Material.prototype,
-		THREE.ShaderMaterial.prototype,
-		THREE.EventDispatcher.prototype,
+		extend.CustomMaterial.prototype,
+		Material.prototype,
+		ShaderMaterial.prototype,
+		EventDispatcher.prototype,
 		{
 
 			isShaderMaterial: true,
@@ -502,7 +506,7 @@
 			isParticleBasicMaterial: false,
 			isParticleSystemMaterial: false,
 
-			constructor: THREE.CustomMaterial,
+			constructor: extend.CustomMaterial,
 
 			map: null,
 			aoMap: null,
@@ -521,9 +525,9 @@
 			clearcoatNormalMap: null,
 
 			normalMapType: TangentSpaceNormalMap,
-			combine: THREE.MultiplyOperation,
+			combine: MultiplyOperation,
 
-			clone: function( source ) {
+			clone: function ( source ) {
 
 				const clone = _clone.call( this );
 
@@ -551,17 +555,17 @@
 		}
 	);
 
-	Object.defineProperties( THREE.CustomMaterial.prototype, {
+	Object.defineProperties( extend.CustomMaterial.prototype, {
 
 		specular: {
 
-			get: function() {
+			get: function () {
 
 				return this.uniforms.specular.value;
 
 			},
 
-			set: function( value ) {
+			set: function ( value ) {
 
 				this.uniforms.specular.value = value;
 
@@ -571,13 +575,13 @@
 
 		shininess: {
 
-			get: function() {
+			get: function () {
 
 				return this.uniforms.shininess.value;
 
 			},
 
-			set: function( value ) {
+			set: function ( value ) {
 
 				this.uniforms.shininess.value = value;
 
@@ -585,8 +589,37 @@
 
 		}
 
-	});
+	} );
 
+	// Wrap ES6
+
+	if ( !Object.isExtensible( THREE ) ) {
+
+		class CustomMaterial extends ShaderMaterial {
+
+			constructor( object ) {
+
+				super( object );
+
+				this.type = 'CustomMaterial';
+
+			}
+
+
+		}
+
+		extend.CustomMaterial = CustomMaterial;
+
+		Object.assign( CustomMaterial, ShaderMaterial )
+		Object.assign( CustomMaterial.prototype, ShaderMaterial.prototype );
+
+	}
+
+
+	// Alias
+
+	const extendMaterial = extend;
+	const CustomMaterial = extendMaterial.CustomMaterial;
 
 
 
@@ -766,7 +799,6 @@
 	};
 
 
-
 	function useUniformPairs( instance, uniforms ) {
 
 		// Only pairs with initial values other than null or zero needed
@@ -799,7 +831,7 @@
 
 	function useUniforms( name, object, uniforms ) {
 
-		useUniformPairs( object.uniforms, uniforms  );
+		useUniformPairs( object.uniforms, uniforms );
 
 		if ( object.common !== false )
 			cloneUniforms( UniformsLib.common, uniforms );
@@ -813,15 +845,15 @@
 		if ( fog )
 			cloneUniforms( UniformsLib.fog, uniforms );
 
-		if ( lights) {
+		if ( lights ) {
 
 			if ( object.use ) {
 
 				const use = object.use;
-				const shared = use.indexOf('sharedLights') > -1;
-				const shadows = use.indexOf('shadows') > -1;
+				const shared = use.indexOf( 'sharedLights' ) > -1;
+				const shadows = use.indexOf( 'shadows' ) > -1;
 
-				if ( use.indexOf('PointLight') > -1 ) {
+				if ( use.indexOf( 'PointLight' ) > -1 ) {
 
 					cloneUniforms( UniformsLib.lights.pointLights, uniforms );
 
@@ -835,7 +867,7 @@
 
 				}
 
-				if ( use.indexOf('SpotLight') > -1 ) {
+				if ( use.indexOf( 'SpotLight' ) > -1 ) {
 
 					cloneUniforms( UniformsLib.lights.spotLights, uniforms );
 
@@ -849,7 +881,7 @@
 
 				}
 
-				if ( use.indexOf('DirectionalLight') > -1 ) {
+				if ( use.indexOf( 'DirectionalLight' ) > -1 ) {
 
 					cloneUniforms( UniformsLib.lights.directionalLights, uniforms );
 
@@ -863,16 +895,16 @@
 
 				}
 
-				if ( use.indexOf('LightProbe') > -1 )
+				if ( use.indexOf( 'LightProbe' ) > -1 )
 					cloneUniforms( UniformsLib.lights.lightProbe, uniforms );
 
-				if ( use.indexOf('AmbientLight') > -1 )
+				if ( use.indexOf( 'AmbientLight' ) > -1 )
 					cloneUniforms( UniformsLib.lights.ambientLightColor, uniforms );
 
-				if ( use.indexOf('ReactAreaLight') > -1 )
+				if ( use.indexOf( 'ReactAreaLight' ) > -1 )
 					cloneUniforms( UniformsLib.lights.rectAreaLights, uniforms );
 
-				if ( use.indexOf('HemisphereLight') > -1 )
+				if ( use.indexOf( 'HemisphereLight' ) > -1 )
 					cloneUniforms( UniformsLib.lights.hemisphereLights, uniforms );
 
 			} else {
@@ -923,7 +955,7 @@
 
 	function makeUniform( value ) {
 
-		return value && value.value !== undefined ? value : { value : value };
+		return value && value.value !== undefined ? value : { value: value };
 
 	}
 
@@ -981,13 +1013,13 @@
 
 			if ( value instanceof Object ) {
 
-				if ( THREE.ShaderChunk[ name ] === undefined ) {
+				if ( ShaderChunk[ name ] === undefined ) {
 
-					console.error( 'THREE.ShaderMaterial.extend: ShaderChunk "%s" not found', name );
+					console.error( 'ShaderMaterial.extend: ShaderChunk "%s" not found', name );
 
 				} else {
 
-					chunk = chunk.replace( '#include <' + name + '>', applyPatches( THREE.ShaderChunk[ name ], value ) );
+					chunk = chunk.replace( '#include <' + name + '>', applyPatches( ShaderChunk[ name ], value ) );
 
 				}
 
@@ -1150,15 +1182,15 @@
 
 	}
 
-	function mapShader ( name, type ) {
+	function mapShader( name, type ) {
 
 		const mapping = mappings[ name ];
 
-		return THREE.ShaderChunk[ mapping.id + '_' + ( type === 'vertex' ? 'vert' : 'frag' ) ];
+		return ShaderChunk[ mapping.id + '_' + ( type === 'vertex' ? 'vert' : 'frag' ) ];
 
 	}
 
-	function patchShader ( shader, object, uniformsMixer = applyUniforms, defines = null ) {
+	function patchShader( shader, object, uniformsMixer = applyUniforms, defines = null ) {
 
 		// A shared header ( varyings, uniforms, functions etc )
 
@@ -1197,10 +1229,16 @@
 
 	sharedLightsUniforms = cloneUniforms( UniformsLib.lights, {}, false, true );
 
-	THREE.cloneUniforms = cloneUniforms;
-	THREE.cloneUniform = cloneUniform;
-	THREE.patchShader = patchShader;
-	THREE.mapShader = mapShader;
-	THREE.extendMaterial = extend;
 
-}( THREE ));
+	if ( Object.isExtensible( THREE ) ) {
+
+		THREE.cloneUniforms = cloneUniforms;
+		THREE.cloneUniform = cloneUniform;
+		THREE.patchShader = patchShader;
+		THREE.mapShader = mapShader;
+		THREE.extendMaterial = extendMaterial;
+
+	}
+
+
+})( THREE );
