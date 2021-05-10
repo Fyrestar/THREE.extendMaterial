@@ -683,7 +683,8 @@
 
 
 		Object.assign( CustomMaterial, extend.CustomMaterial )
-		Object.assign( CustomMaterial.prototype, extend.CustomMaterial.prototype );
+		Object.assign( CustomMaterial.prototype, extend.CustomMaterial.prototype, { copy, clone } );
+
 
 		extend.CustomMaterial = CustomMaterial;
 	}
@@ -1302,6 +1303,7 @@
 		THREE.patchShader = patchShader;
 		THREE.mapShader = mapShader;
 		THREE.extendMaterial = extendMaterial;
+		THREE.CustomMaterial = CustomMaterial;
 
 	}
 
