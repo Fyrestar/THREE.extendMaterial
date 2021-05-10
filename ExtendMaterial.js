@@ -618,7 +618,7 @@
 
 	// Wrap ES6
 
-	if ( !Object.isExtensible( THREE ) ) {
+	if ( !Object.isExtensible( THREE ) || parseInt( THREE.REVISION ) > 126 ) {
 
 		class CustomMaterial extends ShaderMaterial {
 
