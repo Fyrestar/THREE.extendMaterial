@@ -1150,7 +1150,7 @@
 
 		// Maps require USE_X constants
 
-		if ( mapFlags[ name ] !== undefined && uniform && uniform.value ) {
+		if ( mapFlags[ name ] !== undefined && uniform && uniform.value !== undefined ) {
 
 
 			// Expose uniform to be detected
