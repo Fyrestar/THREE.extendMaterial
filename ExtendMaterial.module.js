@@ -684,7 +684,8 @@ if ( !Object.isExtensible( THREE ) || parseInt( THREE.REVISION ) > 126 ) {
 
 
 	Object.assign( CustomMaterial, extend.CustomMaterial )
-	Object.assign( CustomMaterial.prototype, extend.CustomMaterial.prototype );
+	Object.assign( CustomMaterial.prototype, extend.CustomMaterial.prototype, { copy, clone } );
+
 
 	extend.CustomMaterial = CustomMaterial;
 }
@@ -1303,9 +1304,9 @@ if ( Object.isExtensible( THREE ) ) {
 	THREE.patchShader = patchShader;
 	THREE.mapShader = mapShader;
 	THREE.extendMaterial = extendMaterial;
+	THREE.CustomMaterial = CustomMaterial;
 
 }
-
 
 export {
 	CustomMaterial,
