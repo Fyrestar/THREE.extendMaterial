@@ -78,6 +78,11 @@ const depthMaterial = THREE.extendMaterial( THREE.MeshDepthMaterial, {
 
 # Release notes
 
+## Fix
+
+- Adapted compatibility with 127+ releases (es6 classes)
+- Module version added
+
 ## Version 2
 
 - A new `THREE.CustomMaterial` which stays more compatible to the in-built materials when extending those
