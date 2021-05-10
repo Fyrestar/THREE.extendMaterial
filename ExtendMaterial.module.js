@@ -178,7 +178,7 @@ function extend( source, object ) {
 	// Inherit from previous material templates chain
 
 	const base = object.template || object.extends;
-	const MaterialClass = object.class || ( source.isMaterial && source.constructor ? source.constructor : null ) || ShaderMaterial;
+	const MaterialClass = object.class || ( source.isMaterial && source.constructor ? source.constructor : null ) || CustomMaterial;
 
 
 	// New shader material
@@ -558,15 +558,37 @@ Object.assign(
 
 Object.defineProperties( extend.CustomMaterial.prototype, {
 
+	reflectivity: {
+
+		get: function () {
+
+			return this.uniforms.reflectivity ? this.uniforms.reflectivity.value : 0;
+
+		},
+
+		set: function ( value ) {
+
+			this.uniforms.reflectivity.value = value;
+
+		}
+
+	},
+
 	specular: {
 
 		get: function () {
+
+			if ( this.uniforms.specular === undefined )
+				this.uniforms.specular = { value: new THREE.Color( 'white' ) };
 
 			return this.uniforms.specular.value;
 
 		},
 
 		set: function ( value ) {
+
+			if ( this.uniforms.specular === undefined )
+				this.uniforms.specular = { value };
 
 			this.uniforms.specular.value = value;
 
@@ -578,11 +600,14 @@ Object.defineProperties( extend.CustomMaterial.prototype, {
 
 		get: function () {
 
-			return this.uniforms.shininess.value;
+			return this.uniforms.shininess ? this.uniforms.shininess.value : 0;
 
 		},
 
 		set: function ( value ) {
+
+			if ( this.uniforms.shininess === undefined )
+				this.uniforms.shininess = { value };
 
 			this.uniforms.shininess.value = value;
 
@@ -606,14 +631,62 @@ if ( !Object.isExtensible( THREE ) ) {
 
 		}
 
+		get specular () {
+
+			if ( this.uniforms.specular === undefined )
+				this.uniforms.specular = { value: new THREE.Color( 'white' ) };
+
+			return this.uniforms.specular.value;
+
+		}
+
+		set specular ( value ) {
+
+			if ( this.uniforms.specular === undefined )
+				this.uniforms.specular = { value };
+
+			this.uniforms.specular.value = value;
+
+		}
+
+
+
+		get shininess () {
+
+			return this.uniforms.shininess ? this.uniforms.shininess.value : 0;
+
+		}
+
+		set shininess ( value ) {
+
+			if ( this.uniforms.shininess === undefined )
+				this.uniforms.shininess = { value };
+
+			this.uniforms.shininess.value = value;
+
+		}
+
+
+
+		get reflectivity () {
+
+			return this.uniforms.reflectivity ? this.uniforms.reflectivity.value : 0;
+
+		}
+
+		set reflectivity ( value ) {
+
+			this.uniforms.reflectivity.value = value;
+
+		}
 
 	}
 
+
+	Object.assign( CustomMaterial, extend.CustomMaterial )
+	Object.assign( CustomMaterial.prototype, extend.CustomMaterial.prototype );
+
 	extend.CustomMaterial = CustomMaterial;
-
-	Object.assign( CustomMaterial, ShaderMaterial )
-	Object.assign( CustomMaterial.prototype, ShaderMaterial.prototype );
-
 }
 
 
@@ -1083,15 +1156,7 @@ function applyConstants( name, uniform, defines, object, instance ) {
 
 		// Expose uniform to be detected
 
-		if ( instance[ name ] !== undefined ) {
-
-			instance[ name ] = uniform.value;
-
-		} else {
-
-			defines[ mapFlags[ name ] ] = true;
-
-		}
+		instance[ name ] = uniform.value;
 
 	}
 
