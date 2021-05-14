@@ -11,43 +11,63 @@ For patching in onBeforeCompile:
 
 
 ```javascript
+
 const myMaterial = THREE.extendMaterial(THREE.MeshPhongMaterial, {
 
-    // Will be prepended to vertex and fragment code
-    header: 'varying vec3 vEye;',
+	// Will be prepended to vertex and fragment code
+	header: 'varying vec3 vEye;',
+
+	// Will be prepended to vertex code
+	headerVertex: '',
+
+	// Will be prepended to fragment code
+	headerFragment: '',
+
+	// If desired, the material class to create can be defined such as RawShaderMaterial or ShaderMaterial, by
+	// default in order to seamlessly work with in-built features the CustomMaterial class provided by this
+	// plugin is used which is a slightly extended ShaderMaterial.
+	// class: THREE.ShaderMaterial,
+
+	// Insert code lines by hinting at a existing
+	vertex: {
+
+		// Inserts the line after #include <fog_vertex>
+
+		'#include <fog_vertex>': 'vEye = normalize(cameraPosition - w.xyz);',
+
+		// Replaces a line (@ prefix) inside of the project_vertex include
+
+		'project_vertex': {
+			'@vec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );': 'vec4 mvPosition = modelViewMatrix * vec4( transformed * 0.5, 1.0 );'
+		}
+	},
+	fragment: {
+		'#include <envmap_fragment>': 'diffuseColor.rgb += pow(dot(vNormal, vEye), 3.0);'
+	},
 
 
-    // Insert code lines by hinting at a existing
-    vertex: {
-
-        // Inserts the line after #include <fog_vertex>
-        
-        '#include <fog_vertex>': 'vEye = normalize(cameraPosition - w.xyz);',
-
-        // Replaces a line (@ prefix) inside of the project_vertex include
-
-        'project_vertex': {
-            '@vec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );': 'vec4 mvPosition = modelViewMatrix * vec4( transformed * 0.5, 1.0 );'
-        }
-    },
-    fragment: {
-        '#include <envmap_fragment>': 'diffuseColor.rgb += pow(dot(vNormal, vEye), 3.0);'
-    },
+	// Properties to apply to the new THREE.ShaderMaterial
+	material: {
+		skinning: true
+	},
 
 
-    // Properties to apply to the new THREE.ShaderMaterial
-    material: {
-        skinning: true
-    },
+	// Uniforms (will be applied to existing or added) as value or uniform object
+	uniforms: {
 
+		// Use a value directly, uniform object will be created for or ..
+		diffuse: new THREE.Color(0xffffff),
 
-    // Uniforms (will be applied to existing or added) as value or uniform object
-    uniforms: {
-        diffuse: new THREE.Color(0xffffff),
-        emissive: {
-            value: new THREE.Color('pink')
-        }
-    }
+		// ... provide the uniform object, by declaring a shared: true property and such you can ensure
+		// the object will be shared across materials rather than cloned.
+		emissive: {
+			shared: true, // This uniform can be shared across all materials it gets assigned to, sharing the value
+			mixed : true, // When creating a material with/from a template this will be passed through
+			linked: true, // To share them when used as template but not when extending them further, this ensures you don’t have
+						  // to sync. uniforms from your original material with the depth material for shadows for example (see Demo)
+			value: new THREE.Color('pink')
+		}
+	}
 
 });
 ```
