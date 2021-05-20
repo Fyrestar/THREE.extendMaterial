@@ -273,10 +273,10 @@ function extend( source, object ) {
 	}
 
 
-	// ShaderMaterial in disguise
+	// ShaderMaterial in disguise ( currently not required )
 
-	if ( material.isCustomMaterial )
-		material[ 'is' + name ] = true;
+	//if ( material.isCustomMaterial )
+	//	material[ 'is' + name ] = true;
 
 
 	// Override constants
