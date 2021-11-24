@@ -1,0 +1,23 @@
+{
+    "name": "three-extend-material",
+    "version": "1.0.0",
+    "description": "Plugin for extending built-in materials, instances of ShaderMaterial and built-in materials as well as shader objects of `onBeforeCompile`.",
+    "main": "src/ExtendMaterial.ts",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/SaFrMo/THREE.extendMaterial.git"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/SaFrMo/THREE.extendMaterial/issues"
+    },
+    "homepage": "https://github.com/SaFrMo/THREE.extendMaterial#readme",
+    "devDependencies": {
+        "three": "0.134.0"
+    }
+}
