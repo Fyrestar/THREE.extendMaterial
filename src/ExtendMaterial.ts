@@ -19,7 +19,9 @@ const {
 
 // Fix missing pairs
 
-UniformsLib.clearcoatnormalmap = {
+const UniformsLibExtendable = UniformsLib as Record<string, any>
+
+UniformsLibExtendable.clearcoatnormalmap = {
     clearcoatNormalScale: { value: new Vector2(1, 1) },
 }
 
@@ -354,7 +356,8 @@ Object.assign(ShaderMaterial.prototype, { extend, uniform, clone, link, copy })
 
 // Polyfill to allow custom depth/distance materials as material variation
 
-if (ShaderMaterial.prototype.customDepthMaterial !== undefined) {
+// TODO: rather not typecast to `any` here - how to fix?
+if ((ShaderMaterial.prototype as any).customDepthMaterial !== undefined) {
     const MeshPolyfill = {
         _customDepthMaterial: {
             enumerable: true,
@@ -428,7 +431,6 @@ Object.assign(
         isPointsMaterial: false,
         isMeshPhysicalMaterial: false,
         isMeshStandardMaterial: false,
-        isMeshPhongMaterial: false,
         isMeshToonMaterial: false,
         isMeshNormalMaterial: false,
         isMeshLambertMaterial: false,
@@ -538,63 +540,61 @@ Object.defineProperties(extend.CustomMaterial.prototype, {
 
 // Wrap ES6
 
-if (!Object.isExtensible(THREE) || parseInt(THREE.REVISION) > 126) {
-    class CustomMaterial extends ShaderMaterial {
-        constructor(object) {
-            super(object)
+// if (!Object.isExtensible(THREE) || parseInt(THREE.REVISION) > 126) {
+class CustomMaterial extends ShaderMaterial {
+    constructor(object) {
+        super(object)
 
-            this.type = 'CustomMaterial'
-        }
-
-        get specular() {
-            if (this.uniforms.specular === undefined)
-                this.uniforms.specular = { value: new THREE.Color('white') }
-
-            return this.uniforms.specular.value
-        }
-
-        set specular(value) {
-            if (this.uniforms.specular === undefined)
-                this.uniforms.specular = { value }
-
-            this.uniforms.specular.value = value
-        }
-
-        get shininess() {
-            return this.uniforms.shininess ? this.uniforms.shininess.value : 0
-        }
-
-        set shininess(value) {
-            if (this.uniforms.shininess === undefined)
-                this.uniforms.shininess = { value }
-
-            this.uniforms.shininess.value = value
-        }
-
-        get reflectivity() {
-            return this.uniforms.reflectivity
-                ? this.uniforms.reflectivity.value
-                : 0
-        }
-
-        set reflectivity(value) {
-            this.uniforms.reflectivity.value = value
-        }
+        this.type = 'CustomMaterial'
     }
 
-    Object.assign(CustomMaterial, extend.CustomMaterial)
-    Object.assign(CustomMaterial.prototype, extend.CustomMaterial.prototype, {
-        copy,
-        clone,
-    })
+    get specular() {
+        if (this.uniforms.specular === undefined)
+            this.uniforms.specular = { value: new THREE.Color('white') }
 
-    extend.CustomMaterial = CustomMaterial
+        return this.uniforms.specular.value
+    }
+
+    set specular(value) {
+        if (this.uniforms.specular === undefined)
+            this.uniforms.specular = { value }
+
+        this.uniforms.specular.value = value
+    }
+
+    get shininess() {
+        return this.uniforms.shininess ? this.uniforms.shininess.value : 0
+    }
+
+    set shininess(value) {
+        if (this.uniforms.shininess === undefined)
+            this.uniforms.shininess = { value }
+
+        this.uniforms.shininess.value = value
+    }
+
+    get reflectivity() {
+        return this.uniforms.reflectivity ? this.uniforms.reflectivity.value : 0
+    }
+
+    set reflectivity(value) {
+        this.uniforms.reflectivity.value = value
+    }
 }
+
+Object.assign(CustomMaterial, extend.CustomMaterial)
+Object.assign(CustomMaterial.prototype, extend.CustomMaterial.prototype, {
+    copy,
+    clone,
+})
+
+// extend.CustomMaterial = CustomMaterial
+// }
 
 // Alias
 
 const extendMaterial = extend
-const CustomMaterial = extendMaterial.CustomMaterial
+// const CustomMaterial = extendMaterial.CustomMaterial
 
 let sharedLightsUniforms
 
@@ -712,8 +712,8 @@ const uniforms = {
 }
 
 const requiredUniforms = {
-    points: UniformsLib.points,
-    sprite: UniformsLib.sprite,
+    points: UniformsLibExtendable.points,
+    sprite: UniformsLibExtendable.sprite,
     dashed: {
         scale: { value: 1 },
         dashSize: { value: 1 },
@@ -776,27 +776,30 @@ function useUniformPairs(instance, uniforms) {
 
     if (!instance) return
 
-    if (instance.envMap) cloneUniforms(UniformsLib.envmap, uniforms)
+    if (instance.envMap) cloneUniforms(UniformsLibExtendable.envmap, uniforms)
 
-    if (instance.aoMap) cloneUniforms(UniformsLib.aomap, uniforms)
+    if (instance.aoMap) cloneUniforms(UniformsLibExtendable.aomap, uniforms)
 
-    if (instance.lightMap) cloneUniforms(UniformsLib.lightmap, uniforms)
+    if (instance.lightMap)
+        cloneUniforms(UniformsLibExtendable.lightmap, uniforms)
 
-    if (instance.bumpMap) cloneUniforms(UniformsLib.bumpmap, uniforms)
+    if (instance.bumpMap) cloneUniforms(UniformsLibExtendable.bumpmap, uniforms)
 
-    if (instance.normalMap) cloneUniforms(UniformsLib.normalmap, uniforms)
+    if (instance.normalMap)
+        cloneUniforms(UniformsLibExtendable.normalmap, uniforms)
 
     if (instance.displacementMap)
-        cloneUniforms(UniformsLib.displacementmap, uniforms)
+        cloneUniforms(UniformsLibExtendable.displacementmap, uniforms)
 
     if (instance.clearcoatNormalMap)
-        cloneUniforms(UniformsLib.clearcoatnormalmap, uniforms)
+        cloneUniforms(UniformsLibExtendable.clearcoatnormalmap, uniforms)
 }
 
 function useUniforms(name, object, uniforms) {
     useUniformPairs(object.uniforms, uniforms)
 
-    if (object.common !== false) cloneUniforms(UniformsLib.common, uniforms)
+    if (object.common !== false)
+        cloneUniforms(UniformsLibExtendable.common, uniforms)
 
     if (requiredUniforms[name] !== undefined)
         cloneUniforms(requiredUniforms[name], uniforms)
@@ -807,7 +810,7 @@ function useUniforms(name, object, uniforms) {
     const lights =
         object.lights || (object.material ? object.material.lights : null)
 
-    if (fog) cloneUniforms(UniformsLib.fog, uniforms)
+    if (fog) cloneUniforms(UniformsLibExtendable.fog, uniforms)
 
     if (lights) {
         if (object.use) {
@@ -816,46 +819,85 @@ function useUniforms(name, object, uniforms) {
             const shadows = use.indexOf('shadows') > -1
 
             if (use.indexOf('PointLight') > -1) {
-                cloneUniforms(UniformsLib.lights.pointLights, uniforms)
+                cloneUniforms(
+                    UniformsLibExtendable.lights.pointLights,
+                    uniforms
+                )
 
                 if (shadows) {
-                    cloneUniforms(UniformsLib.pointLightShadows, uniforms)
-                    cloneUniforms(UniformsLib.pointShadowMap, uniforms)
-                    cloneUniforms(UniformsLib.pointShadowMatrix, uniforms)
+                    cloneUniforms(
+                        UniformsLibExtendable.pointLightShadows,
+                        uniforms
+                    )
+                    cloneUniforms(
+                        UniformsLibExtendable.pointShadowMap,
+                        uniforms
+                    )
+                    cloneUniforms(
+                        UniformsLibExtendable.pointShadowMatrix,
+                        uniforms
+                    )
                 }
             }
 
             if (use.indexOf('SpotLight') > -1) {
-                cloneUniforms(UniformsLib.lights.spotLights, uniforms)
+                cloneUniforms(UniformsLibExtendable.lights.spotLights, uniforms)
 
                 if (shadows) {
-                    cloneUniforms(UniformsLib.spotLightShadows, uniforms)
-                    cloneUniforms(UniformsLib.spotShadowMap, uniforms)
-                    cloneUniforms(UniformsLib.spotShadowMatrix, uniforms)
+                    cloneUniforms(
+                        UniformsLibExtendable.spotLightShadows,
+                        uniforms
+                    )
+                    cloneUniforms(UniformsLibExtendable.spotShadowMap, uniforms)
+                    cloneUniforms(
+                        UniformsLibExtendable.spotShadowMatrix,
+                        uniforms
+                    )
                 }
             }
 
             if (use.indexOf('DirectionalLight') > -1) {
-                cloneUniforms(UniformsLib.lights.directionalLights, uniforms)
+                cloneUniforms(
+                    UniformsLibExtendable.lights.directionalLights,
+                    uniforms
+                )
 
                 if (shadows) {
-                    cloneUniforms(UniformsLib.directionalLightShadows, uniforms)
-                    cloneUniforms(UniformsLib.directionalShadowMap, uniforms)
-                    cloneUniforms(UniformsLib.directionalShadowMatrix, uniforms)
+                    cloneUniforms(
+                        UniformsLibExtendable.directionalLightShadows,
+                        uniforms
+                    )
+                    cloneUniforms(
+                        UniformsLibExtendable.directionalShadowMap,
+                        uniforms
+                    )
+                    cloneUniforms(
+                        UniformsLibExtendable.directionalShadowMatrix,
+                        uniforms
+                    )
                 }
             }
 
             if (use.indexOf('LightProbe') > -1)
-                cloneUniforms(UniformsLib.lights.lightProbe, uniforms)
+                cloneUniforms(UniformsLibExtendable.lights.lightProbe, uniforms)
 
             if (use.indexOf('AmbientLight') > -1)
-                cloneUniforms(UniformsLib.lights.ambientLightColor, uniforms)
+                cloneUniforms(
+                    UniformsLibExtendable.lights.ambientLightColor,
+                    uniforms
+                )
 
             if (use.indexOf('ReactAreaLight') > -1)
-                cloneUniforms(UniformsLib.lights.rectAreaLights, uniforms)
+                cloneUniforms(
+                    UniformsLibExtendable.lights.rectAreaLights,
+                    uniforms
+                )
 
             if (use.indexOf('HemisphereLight') > -1)
-                cloneUniforms(UniformsLib.lights.hemisphereLights, uniforms)
+                cloneUniforms(
+                    UniformsLibExtendable.lights.hemisphereLights,
+                    uniforms
+                )
         } else {
             cloneUniforms(sharedLightsUniforms, uniforms)
         }
@@ -864,9 +906,7 @@ function useUniforms(name, object, uniforms) {
     return uniforms
 }
 
-function cloneUniform(src, dst) {
-    dst = dst || {}
-
+function cloneUniform(src, dst = {}) {
     for (let key in src) {
         const property = src[key]
 
@@ -897,14 +937,12 @@ function makeUniform(value) {
 
 function cloneUniforms(
     src,
-    dst,
+    dst = {},
     notNull = false,
     share = false,
     mix = false,
     link = false
 ) {
-    dst = dst || {}
-
     for (let u in src) {
         const uniform = src[u]
 
@@ -1003,7 +1041,13 @@ function applyConstants(name, uniform, defines, object, instance) {
 
     const flag = uniformFlags[name]
 
-    if (flag !== undefined && (flag.not === undefined || flag.not !== value))
+    if (
+        flag !== undefined &&
+        (flag.not === undefined ||
+            // TODO: this was originally just `flag.not !== value`, but
+            // there's no `value` var. Is this the correct fix?
+            flag.not !== uniform.value)
+    )
         defines[flag.as] = uniform.value
 }
 
@@ -1019,11 +1063,13 @@ function applyUniforms(instance, src, dst, defines) {
 
         let uniform = makeUniform(src.uniforms[name])
 
-        if (
-            defines &&
-            applyConstants(name, uniform, defines, src, instance) === false
-        )
-            continue
+        // TODO: `applyConstants` returns void, so this check is always false.
+        // Is there something it should be doing?
+        // if (
+        //     defines &&
+        //     applyConstants(name, uniform, defines, src, instance) === false
+        // )
+        //     continue
 
         dst.uniforms[name] = uniform
     }
@@ -1048,7 +1094,11 @@ function mixUniforms(src, dst, defines) {
                 ? uniform
                 : cloneUniform(uniform)
 
-            if (defines) applyConstants(name, uniform, defines, src)
+            if (defines) {
+                // TODO: this was being called with just `(name, uniform, defines, src)`.
+                // is this the right fix?
+                applyConstants(name, uniform, defines, src, src)
+            }
         }
     }
 }
@@ -1107,22 +1157,31 @@ function patchShader(
     shader.vertexShader = header + vertexShader
     shader.fragmentShader = header + fragmentShader
 
-    if (uniformsMixer instanceof Function)
-        uniformsMixer(object, shader, defines)
+    if (uniformsMixer instanceof Function) {
+        // TODO: this was being called with just `(object, shader, defines)`
+        // args, which is missing an argument. Is this the best fix?
+        uniformsMixer(object, shader, defines, defines)
+    }
 
     return shader
 }
 
-sharedLightsUniforms = cloneUniforms(UniformsLib.lights, {}, false, true)
+sharedLightsUniforms = cloneUniforms(
+    UniformsLibExtendable.lights,
+    {},
+    false,
+    true
+)
 
-if (Object.isExtensible(THREE)) {
-    THREE.cloneUniforms = cloneUniforms
-    THREE.cloneUniform = cloneUniform
-    THREE.patchShader = patchShader
-    THREE.mapShader = mapShader
-    THREE.extendMaterial = extendMaterial
-    THREE.CustomMaterial = CustomMaterial
-}
+// removing to keep things modular
+// if (Object.isExtensible(THREE)) {
+//     THREE.cloneUniforms = cloneUniforms
+//     THREE.cloneUniform = cloneUniform
+//     THREE.patchShader = patchShader
+//     THREE.mapShader = mapShader
+//     THREE.extendMaterial = extendMaterial
+//     THREE.CustomMaterial = CustomMaterial
+// }
 
 export {
     CustomMaterial,
