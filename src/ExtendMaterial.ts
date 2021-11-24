@@ -17,6 +17,17 @@ const {
     RawShaderMaterial,
 } = THREE
 
+// Utility functions
+function isShaderMaterial(target: any): target is THREE.ShaderMaterial {
+    return target && target.isShaderMaterial
+}
+function isDepthMaterial(target: any): target is THREE.MeshDepthMaterial {
+    return (
+        (target && target.isMeshDepthMaterial) ||
+        target === THREE.MeshDepthMaterial
+    )
+}
+
 // Fix missing pairs
 
 const UniformsLibExtendable = UniformsLib as Record<string, any>
@@ -137,7 +148,7 @@ function uniform(name) {
     return this.uniforms[name]
 }
 
-function extend(source, object) {
+function extend<T extends THREE.Material>(source: T, object) {
     object = object || {}
 
     // Extend from class or shader material
@@ -164,8 +175,10 @@ function extend(source, object) {
 
     material.templates = [object]
 
-    if (source.templates instanceof Array)
-        material.templates = source.templates.concat(material.templates)
+    if ((source as any).templates instanceof Array)
+        material.templates = (source as any).templates.concat(
+            material.templates
+        )
 
     let name
 
@@ -190,7 +203,7 @@ function extend(source, object) {
         uniforms = mapUniforms(mapping.name, uniforms, object) // Use only declared/necessary uniforms or all
         vertexShader = ShaderChunk[mapping.id + '_vert']
         fragmentShader = ShaderChunk[mapping.id + '_frag']
-    } else if (source.isShaderMaterial) {
+    } else if (isShaderMaterial(source)) {
         // Source is a ShaderMaterial
 
         name = source.type
@@ -336,10 +349,7 @@ function extend(source, object) {
 
     // Fix: default for depth material packing
 
-    if (
-        (source.isMeshDepthMaterial || source === THREE.MeshDepthMaterial) &&
-        defines.DEPTH_PACKING === undefined
-    )
+    if (isDepthMaterial(source) && defines.DEPTH_PACKING === undefined)
         defines.DEPTH_PACKING = THREE.RGBADepthPacking
 
     return material
