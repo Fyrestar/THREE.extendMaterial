@@ -668,6 +668,10 @@ const mappings = {
         id: 'meshmatcap',
         name: 'matcap',
     },
+    MeshToonMaterial: {
+        id: 'meshtoon',
+        name: 'toon',
+    },
     PointsMaterial: {
         id: 'points',
         name: 'points',
