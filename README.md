@@ -1,4 +1,4 @@
-![extendMaterial-01](https://user-images.githubusercontent.com/28584767/157964069-93f706d4-538c-4e78-b61e-268c8c8da5df.jpg)
+![extendMaterial-01](https://user-images.githubusercontent.com/28584767/157972769-df8448b0-8dd5-419d-a2cb-9e3aec1ec543.png)
 
 # Extending Materials
 Plugin for extending built-in materials, instances of ShaderMaterial and built-in materials as well as shader objects of `onBeforeCompile`.
