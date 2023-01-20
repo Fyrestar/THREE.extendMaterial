@@ -1,3 +1,5 @@
+import * as THREE from 'three'
+
 ( THREE => {
 
 	// Author: Fyrestar https://mevedia.com (https://github.com/Fyrestar/THREE.extendMaterial)
