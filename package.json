@@ -23,7 +23,7 @@
     "homepage": "https://github.com/SaFrMo/THREE.extendMaterial#readme",
     "devDependencies": {
         "@vitejs/plugin-vue": "2.0.1",
-        "three": "0.136.0",
+        "three": "0.137.0",
         "typescript": "4.5.4",
         "vite": "2.7.10",
         "vue": "3.2.26",
